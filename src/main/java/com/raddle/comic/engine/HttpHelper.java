@@ -17,7 +17,7 @@ import org.apache.http.util.EntityUtils;
  * 
  */
 public class HttpHelper {
-	public String getRemotePage(String url, String charset) throws IOException {
+	public static String getRemotePage(String url, String charset) throws IOException {
 		CloseableHttpClient httpclient = HttpClients.createMinimal();
 		HttpGet httpGet = new HttpGet(url);
 		CloseableHttpResponse response = httpclient.execute(httpGet);
