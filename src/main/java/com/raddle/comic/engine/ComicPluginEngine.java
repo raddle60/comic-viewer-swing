@@ -15,12 +15,16 @@ import org.mozilla.javascript.NativeArray;
 import org.mozilla.javascript.NativeObject;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
+import org.slf4j.LoggerFactory;
+
+import com.raddle.comic.LogWrapper;
 
 /**
  * @author raddle
  * 
  */
 public class ComicPluginEngine {
+	private static LogWrapper logger = new LogWrapper(LoggerFactory.getLogger(ComicPluginEngine.class));
 	private Context context;
 	private Scriptable topScope;
 	private File pluginFile;
@@ -57,6 +61,10 @@ public class ComicPluginEngine {
 					pageInfos.add(info);
 				}
 			}
+		} else if (result != null) {
+			logger.log("getPages return unsupported result type :" + result.getClass());
+		} else {
+			logger.log("getPages can't find page comicId[{}] sectionId[{}]", comicId, sectionId);
 		}
 		return pageInfos;
 	}
