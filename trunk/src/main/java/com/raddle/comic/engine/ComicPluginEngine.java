@@ -6,7 +6,10 @@ package com.raddle.comic.engine;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+
+import javax.swing.JOptionPane;
 
 import org.apache.commons.io.FileUtils;
 import org.mozilla.javascript.Context;
@@ -29,7 +32,7 @@ public class ComicPluginEngine {
 	private Scriptable topScope;
 	private File pluginFile;
 
-	public void init() throws IOException {
+	public void init(File pluginFile) throws IOException {
 		if (context != null) {
 			throw new IllegalStateException("ComicPluginEngine was initialized ");
 		}
@@ -38,8 +41,30 @@ public class ComicPluginEngine {
 		ScriptableObject.putProperty(topScope, "out", System.out);
 		ScriptableObject.putProperty(topScope, "httpclient", new HttpHelper());
 		ScriptableObject.putProperty(topScope, "engine", this);
-		pluginFile = new File("D:\\workspaces\\raddle\\playlist\\src\\main\\resources\\comic.sfacg.com.js");
+		this.pluginFile = pluginFile;
 		context.evaluateString(topScope, FileUtils.readFileToString(pluginFile, "utf-8"), "<" + pluginFile.getName() + ">", 1, null);
+	}
+
+	public ChannelInfo getChannelInfo() {
+		NativeObject channelObj = (NativeObject) topScope.get("channel", topScope);
+		ChannelInfo channelInfo = new ChannelInfo();
+		if (channelObj != null && channelObj != Scriptable.NOT_FOUND) {
+			if (channelObj.get("name", topScope) != null && channelObj.get("name", topScope) != Scriptable.NOT_FOUND) {
+				channelInfo.setName((String) channelObj.get("name", topScope));
+			}
+			if (channelObj.get("home", topScope) != null && channelObj.get("home", topScope) != Scriptable.NOT_FOUND) {
+				channelInfo.setHome((String) channelObj.get("home", topScope));
+			}
+			if (channelObj.get("desc", topScope) != null && channelObj.get("desc", topScope) != Scriptable.NOT_FOUND) {
+				channelInfo.setDesc((String) channelObj.get("desc", topScope));
+			}
+		}
+		if (channelInfo.getName() != null) {
+			return channelInfo;
+		} else {
+			logger.log("missing var channel in file[{}]", pluginFile);
+		}
+		return null;
 	}
 
 	public List<PageInfo> getPages(String comicId, String sectionId) {
@@ -67,6 +92,32 @@ public class ComicPluginEngine {
 			logger.log("getPages can't find page comicId[{}] sectionId[{}]", comicId, sectionId);
 		}
 		return pageInfos;
+	}
+
+	public static List<ChannelInfo> getChannelList(File pluginDir) {
+		List<ChannelInfo> list = new ArrayList<ChannelInfo>();
+		if (pluginDir.isDirectory()) {
+			Collection<File> listFiles = FileUtils.listFiles(pluginDir, new String[] { "js" }, true);
+			for (File file : listFiles) {
+				ComicPluginEngine pluginEngine = new ComicPluginEngine();
+				try {
+					pluginEngine.init(file);
+					ChannelInfo channelInfo = pluginEngine.getChannelInfo();
+					if (channelInfo != null) {
+						channelInfo.setScriptFile(file);
+						list.add(channelInfo);
+					}
+				} catch (IOException e) {
+					logger.log(e.getMessage(), e);
+				} finally {
+					pluginEngine.close();
+				}
+			}
+		} else {
+			logger.log("dir[{}] not exist or not a dir", pluginDir);
+			JOptionPane.showMessageDialog(null, LogWrapper.replacePlaceHolder("目录[{}]不存在或不是目录", pluginDir));
+		}
+		return list;
 	}
 
 	public void close() {
