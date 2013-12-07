@@ -199,4 +199,8 @@ public class OpenComicDialog extends JDialog {
 	public String getSectionId() {
 		return sectionIdTxt.getText();
 	}
+
+	public Integer getPageNo() {
+		return ((PageInfo) pageNoBox.getSelectedItem()).getPageNo();
+	}
 }
