@@ -67,6 +67,33 @@ public class ComicPluginEngine {
 		return null;
 	}
 
+	public List<SectionInfo> getSections(String comicId) {
+		List<SectionInfo> sectionInfos = new ArrayList<SectionInfo>();
+		Function getSections = (Function) topScope.get("getSections", topScope);
+		Object result = getSections.call(context, topScope, topScope, new Object[] { comicId });
+		if (result instanceof NativeArray) {
+			NativeArray array = (NativeArray) result;
+			for (Object object : array) {
+				if (object instanceof NativeObject) {
+					NativeObject o = (NativeObject) object;
+					SectionInfo info = new SectionInfo();
+					if (o.get("sectionId", topScope) != null && o.get("sectionId", topScope) != Scriptable.NOT_FOUND) {
+						info.setSectionId(o.get("sectionId", topScope) + "");
+					}
+					if (o.get("name", topScope) != null && o.get("name", topScope) != Scriptable.NOT_FOUND) {
+						info.setName(o.get("name", topScope) + "");
+					}
+					sectionInfos.add(info);
+				}
+			}
+		} else if (result != null) {
+			logger.log("getSections return unsupported result type :" + result.getClass());
+		} else {
+			logger.log("getSections can't find section comicId[{}]", comicId);
+		}
+		return sectionInfos;
+	}
+
 	public List<PageInfo> getPages(String comicId, String sectionId) {
 		List<PageInfo> pageInfos = new ArrayList<PageInfo>();
 		Function getPages = (Function) topScope.get("getPages", topScope);
