@@ -185,51 +185,7 @@ public class ComicViewer {
 
 			@Override
 			public void mouseClicked(MouseEvent e) {
-				if (pageNo != null && !loading && pageMap.size() > 0) {
-					PageInfo pageInfo = pageMap.get(pageNo + 1);
-					if (pageInfo != null) {
-						pageNo = pageNo + 1;
-						showImage();
-					} else {
-						if (sectionList == null || sectionList.size() == 0) {
-							try {
-								sectionList = picEngine.getSections(comicId);
-							} catch (Exception e1) {
-								logger.log(e1.getMessage(), e1);
-								JOptionPane.showMessageDialog(null, "获取章节信息失败 , " + e1.getMessage());
-							}
-						}
-						if (sectionList == null || sectionList.size() == 0) {
-							JOptionPane.showMessageDialog(null, "没有获取到章节信息");
-							return;
-						}
-						for (int i = 0; i < sectionList.size(); i++) {
-							SectionInfo sectionInfo = sectionList.get(i);
-							if (StringUtils.equals(sectionInfo.getSectionId(), sectionId)) {
-								if (i < sectionList.size() - 1) {
-									pageNo = 1;
-									sectionId = sectionList.get(i + 1).getSectionId();
-									pageMap.clear();
-									try {
-										List<PageInfo> pages = picEngine.getPages(comicId, sectionId);
-										for (PageInfo pageInfo1 : pages) {
-											pageMap.put(pageInfo1.getPageNo(), pageInfo1);
-										}
-										showImage();
-									} catch (Exception e1) {
-										logger.log(e1.getMessage(), e1);
-										JOptionPane.showMessageDialog(null, "获取页面信息失败 , " + e1.getMessage());
-									}
-								} else {
-									JOptionPane.showMessageDialog(null, "已是最后一章");
-								}
-								return;
-							}
-						}
-						JOptionPane.showMessageDialog(null, "没有匹配到章节信息");
-						return;
-					}
-				}
+				changePage(true);
 			}
 		});
 		//
@@ -305,5 +261,65 @@ public class ComicViewer {
 
 	private String getBasicTitle() {
 		return channelInfo.getName() + " - " + comicId + "/" + sectionId + " - " + pageNo + "/" + pageMap.size();
+	}
+
+	private void changePage(boolean isNextPage) {
+		if (pageNo != null && !loading && pageMap.size() > 0) {
+			loading = true;
+			boolean success = false;
+			frame.setTitle(getBasicTitle() + " - 正在翻页");
+			try {
+				int nextPageNo = isNextPage ? pageNo + 1 : pageNo - 1;
+				PageInfo pageInfo = pageMap.get(nextPageNo);
+				if (pageInfo != null) {
+					pageNo = nextPageNo;
+					success = true;
+				} else {
+					if (sectionList == null || sectionList.size() == 0) {
+						try {
+							sectionList = picEngine.getSections(comicId);
+						} catch (Exception e1) {
+							logger.log(e1.getMessage(), e1);
+							JOptionPane.showMessageDialog(null, "获取章节信息失败 , " + e1.getMessage());
+						}
+					}
+					if (sectionList == null || sectionList.size() == 0) {
+						JOptionPane.showMessageDialog(null, "没有获取到章节信息");
+						return;
+					}
+					for (int i = 0; i < sectionList.size(); i++) {
+						SectionInfo sectionInfo = sectionList.get(i);
+						if (StringUtils.equals(sectionInfo.getSectionId(), sectionId)) {
+							if (isNextPage ? i < sectionList.size() - 1 : i > 0) {
+								sectionId = sectionList.get(isNextPage ? i + 1 : i - 1).getSectionId();
+								pageMap.clear();
+								try {
+									List<PageInfo> pages = picEngine.getPages(comicId, sectionId);
+									for (PageInfo pageInfo1 : pages) {
+										pageMap.put(pageInfo1.getPageNo(), pageInfo1);
+									}
+									pageNo = isNextPage ? 1 : pageMap.size();
+									success = true;
+								} catch (Exception e1) {
+									logger.log(e1.getMessage(), e1);
+									JOptionPane.showMessageDialog(null, "获取页面信息失败 , " + e1.getMessage());
+								}
+							} else {
+								JOptionPane.showMessageDialog(null, isNextPage ? "已是最后一章" : "已是第一章");
+							}
+							return;
+						}
+					}
+					JOptionPane.showMessageDialog(null, "没有匹配到章节信息");
+					return;
+				}
+			} finally {
+				loading = false;
+				frame.setTitle(getBasicTitle());
+				if (success) {
+					showImage();
+				}
+			}
+		}
 	}
 }
