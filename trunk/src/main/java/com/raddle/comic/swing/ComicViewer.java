@@ -10,6 +10,8 @@ import java.awt.Image;
 import java.awt.Point;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
@@ -149,6 +151,26 @@ public class ComicViewer {
 			}
 
 		};
+		frame.addKeyListener(new KeyAdapter() {
+			@Override
+			public void keyPressed(KeyEvent e) {
+				if (e.getKeyCode() == KeyEvent.VK_RIGHT || e.getKeyCode() == KeyEvent.VK_DOWN || e.getKeyCode() == KeyEvent.VK_PAGE_DOWN) {
+					changePage(true);
+				}
+				if (e.getKeyCode() == KeyEvent.VK_LEFT || e.getKeyCode() == KeyEvent.VK_UP || e.getKeyCode() == KeyEvent.VK_PAGE_UP) {
+					changePage(false);
+				}
+				if (e.getKeyCode() == KeyEvent.VK_HOME) {
+					pageNo = 1;
+					showImage();
+				}
+				if (e.getKeyCode() == KeyEvent.VK_END) {
+					pageNo = pageMap.size();
+					showImage();
+				}
+				System.out.println(e.getKeyCode());
+			}
+		});
 		picPane.addMouseWheelListener(new MouseWheelListener() {
 			public void mouseWheelMoved(MouseWheelEvent e) {
 				if (e.getWheelRotation() == 1) {
