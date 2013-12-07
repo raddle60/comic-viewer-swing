@@ -102,10 +102,10 @@ public class ComicViewer {
 		picPane.addMouseWheelListener(new MouseWheelListener() {
 			public void mouseWheelMoved(MouseWheelEvent e) {
 				if (e.getWheelRotation() == 1) {
-					movePic(0, -30);
+					movePic(0, -50);
 				}
 				if (e.getWheelRotation() == -1) {
-					movePic(0, 30);
+					movePic(0, 50);
 				}
 				picPane.repaint();
 			}
