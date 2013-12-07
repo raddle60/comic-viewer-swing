@@ -26,4 +26,9 @@ public class PageInfo {
 	public void setPageUrl(String pageUrl) {
 		this.pageUrl = pageUrl;
 	}
+
+	@Override
+	public String toString() {
+		return pageNo + "";
+	}
 }
