@@ -17,8 +17,8 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
+import java.io.File;
 import java.io.IOException;
-import java.net.URL;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,12 +31,14 @@ import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.LoggerFactory;
 
 import com.raddle.comic.LogWrapper;
 import com.raddle.comic.engine.ChannelInfo;
 import com.raddle.comic.engine.ComicPluginEngine;
+import com.raddle.comic.engine.HttpHelper;
 import com.raddle.comic.engine.PageInfo;
 import com.raddle.comic.engine.SectionInfo;
 
@@ -168,7 +170,6 @@ public class ComicViewer {
 					pageNo = pageMap.size();
 					showImage();
 				}
-				System.out.println(e.getKeyCode());
 			}
 		});
 		picPane.addMouseWheelListener(new MouseWheelListener() {
@@ -263,7 +264,7 @@ public class ComicViewer {
 								return;
 							}
 							try {
-								image = ImageIO.read(new URL(pageInfo.getPageUrl()));
+								image = loadImage(pageInfo);
 								picStartPoint = new Point();
 								picPane.repaint();
 							} catch (Exception e) {
@@ -343,5 +344,27 @@ public class ComicViewer {
 				}
 			}
 		}
+	}
+
+	private Image loadImage(PageInfo pageInfo) throws IOException {
+		Image img = null;
+		// 本地文件 c:/xxx 或者 /xx/xx xxx/xxx
+		if (pageInfo.getPageUrl().charAt(1) == ':' || pageInfo.getPageUrl().indexOf(':') == -1) {
+			img = ImageIO.read(new File(pageInfo.getPageUrl()));
+		} else {
+			// 缓存
+			File cacheFile = new File(System.getProperty("user.home") + "/comic-view/cache/img/" + channelInfo.getName() + "/" + comicId + "/"
+					+ sectionId + "/" + FilenameUtils.getName(pageInfo.getPageUrl()));
+			if (cacheFile.exists()) {
+				img = ImageIO.read(cacheFile);
+			} else {
+				if (!cacheFile.getParentFile().exists()) {
+					cacheFile.getParentFile().mkdirs();
+				}
+				HttpHelper.saveRemotePage(pageInfo.getPageUrl(), cacheFile);
+				img = ImageIO.read(cacheFile);
+			}
+		}
+		return img;
 	}
 }
