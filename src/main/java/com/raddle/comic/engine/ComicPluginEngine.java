@@ -38,7 +38,7 @@ public class ComicPluginEngine {
 		}
 		context = Context.enter();
 		topScope = context.initStandardObjects();
-		ScriptableObject.putProperty(topScope, "out", System.out);
+		ScriptableObject.putProperty(topScope, "log", LoggerFactory.getLogger("ChannelJs"));
 		ScriptableObject.putProperty(topScope, "httpclient", new HttpHelper());
 		ScriptableObject.putProperty(topScope, "engine", this);
 		this.pluginFile = pluginFile;
