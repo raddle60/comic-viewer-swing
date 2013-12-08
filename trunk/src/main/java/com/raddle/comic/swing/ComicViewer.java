@@ -144,6 +144,11 @@ public class ComicViewer {
 					g.setColor(Color.BLACK);
 					g.fillRect(0, 0, this.getWidth(), this.getHeight());
 					g.drawImage(image, picStartPoint.x, picStartPoint.y, this);
+					// 全屏显示页
+					if (isFullScreen) {
+						g.setXORMode(Color.WHITE);
+						g.drawString(sectionId + " - " + pageNo + "/" + pageMap.size(), this.getWidth() - 80, this.getHeight() - 10);
+					}
 				}
 			}
 
