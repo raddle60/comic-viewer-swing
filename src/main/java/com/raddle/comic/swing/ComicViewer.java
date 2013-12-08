@@ -6,6 +6,8 @@ import java.awt.Cursor;
 import java.awt.EventQueue;
 import java.awt.Frame;
 import java.awt.Graphics;
+import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
 import java.awt.Image;
 import java.awt.Point;
 import java.awt.event.ActionEvent;
@@ -58,6 +60,7 @@ public class ComicViewer {
 	private ChannelInfo channelInfo;
 	private Integer pageNo;
 	private boolean loading = false;
+	private boolean isFullScreen = false;
 	private JMenuBar menuBar;
 
 	/**
@@ -68,7 +71,6 @@ public class ComicViewer {
 			public void run() {
 				try {
 					final ComicViewer window = new ComicViewer();
-					window.frame.setExtendedState(Frame.MAXIMIZED_BOTH);
 					window.frame.setVisible(true);
 				} catch (Exception e) {
 					e.printStackTrace();
@@ -81,16 +83,17 @@ public class ComicViewer {
 	 * Create the application.
 	 */
 	public ComicViewer() {
-		initialize();
+		createFrame();
 	}
 
 	/**
 	 * Initialize the contents of the frame.
 	 */
-	private void initialize() {
+	private void createFrame() {
 		frame = new JFrame();
 		frame.setBounds(100, 100, 651, 467);
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		frame.setExtendedState(Frame.MAXIMIZED_BOTH);
 
 		menuBar = new JMenuBar();
 		frame.setJMenuBar(menuBar);
@@ -181,10 +184,36 @@ public class ComicViewer {
 					showImage();
 				}
 				if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
-					System.exit(1);
+					if (isFullScreen) {
+						isFullScreen = false;
+						// 释放前一个frame
+						frame.dispose();
+						// 创建新的frame
+						createFrame();
+						frame.setVisible(true);
+					}
 				}
 				if (e.getKeyCode() == KeyEvent.VK_M) {
-					menuBar.setVisible(!menuBar.isVisible());
+					if (!isFullScreen) {
+						menuBar.setVisible(!menuBar.isVisible());
+					}
+				}
+				if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_ENTER) {
+					if (!isFullScreen) {
+						isFullScreen = true;
+						// 释放前一个frame
+						frame.dispose();
+						// 创建新的frame
+						createFrame();
+						frame.setUndecorated(true);
+						menuBar.setVisible(false);
+						frame.setVisible(true);
+						GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+						// 通过调用GraphicsEnvironment的getDefaultScreenDevice方法获得当前的屏幕设备了
+						GraphicsDevice gd = ge.getDefaultScreenDevice();
+						// 全屏设置
+						gd.setFullScreenWindow(frame);
+					}
 				}
 			}
 		});
