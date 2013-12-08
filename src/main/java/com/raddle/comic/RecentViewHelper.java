@@ -16,6 +16,7 @@ import java.util.List;
 
 import org.apache.commons.configuration.HierarchicalConfiguration;
 import org.apache.commons.configuration.XMLConfiguration;
+import org.apache.commons.io.FilenameUtils;
 import org.slf4j.LoggerFactory;
 
 import com.raddle.comic.engine.ChannelInfo;
@@ -58,7 +59,7 @@ public class RecentViewHelper {
 			addNewViewInfo(channelInfo, comicId, sectionId, pageNo, maxPageNo);
 		} else {
 			for (HierarchicalConfiguration view : views) {
-				if (channelInfo.getScriptFile().getAbsolutePath().equals(view.getProperty("channel.path"))
+				if (channelInfo.getScriptFile().getName().equals(FilenameUtils.getName(view.getProperty("channel.path") + ""))
 						&& comicId.equals(view.getProperty("comicId"))) {
 					view.setProperty("pageNo", pageNo);
 					view.setProperty("sectionId", sectionId);
