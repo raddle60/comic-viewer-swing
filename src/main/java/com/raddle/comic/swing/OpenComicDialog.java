@@ -44,6 +44,7 @@ public class OpenComicDialog extends JDialog {
 	private JComboBox<PageInfo> pageNoBox;
 	private List<PageInfo> pageInfos;
 	private JTextArea descTxt;
+	private JLabel lastSectionIdLeb;
 
 	/**
 	 * Launch the application.
@@ -62,7 +63,7 @@ public class OpenComicDialog extends JDialog {
 	 * Create the dialog.
 	 */
 	public OpenComicDialog() {
-		setBounds(100, 100, 460, 418);
+		setBounds(100, 100, 655, 421);
 		getContentPane().setLayout(new BorderLayout());
 		contentPanel.setBorder(new EmptyBorder(5, 5, 5, 5));
 		getContentPane().add(contentPanel, BorderLayout.CENTER);
@@ -118,7 +119,7 @@ public class OpenComicDialog extends JDialog {
 		contentPanel.add(pageNoBox);
 
 		JScrollPane scrollPane = new JScrollPane();
-		scrollPane.setBounds(10, 114, 429, 229);
+		scrollPane.setBounds(10, 114, 619, 229);
 		contentPanel.add(scrollPane);
 
 		descTxt = new JTextArea();
@@ -148,6 +149,9 @@ public class OpenComicDialog extends JDialog {
 								break;
 							}
 						}
+						if (sections.size() > 0) {
+							lastSectionIdLeb.setText("最后章节：" + sections.get(sections.size() - 1).getSectionId());
+						}
 						if (!matched) {
 							JOptionPane.showMessageDialog(null, "没有对应的章节信息");
 						}
@@ -174,6 +178,10 @@ public class OpenComicDialog extends JDialog {
 		});
 		getBtn.setBounds(346, 81, 93, 23);
 		contentPanel.add(getBtn);
+
+		lastSectionIdLeb = new JLabel("");
+		lastSectionIdLeb.setBounds(351, 60, 278, 15);
+		contentPanel.add(lastSectionIdLeb);
 		{
 			JPanel buttonPane = new JPanel();
 			buttonPane.setLayout(new FlowLayout(FlowLayout.RIGHT));
@@ -231,6 +239,10 @@ public class OpenComicDialog extends JDialog {
 		ComicPluginEngine pluginEngine = new ComicPluginEngine();
 		try {
 			pluginEngine.init(((ChannelInfo) channelBox.getSelectedItem()).getScriptFile());
+			List<SectionInfo> sections = pluginEngine.getSections(comicIdTxt.getText());
+			if (sections.size() > 0) {
+				lastSectionIdLeb.setText("最后章节：" + sections.get(sections.size() - 1).getSectionId());
+			}
 			List<PageInfo> pages = pluginEngine.getPages(comicIdTxt.getText(), sectionIdTxt.getText());
 			pageNoBox.removeAllItems();
 			if (pages != null && pages.size() == 0) {
