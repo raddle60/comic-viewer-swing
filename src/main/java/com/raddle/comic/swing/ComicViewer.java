@@ -32,6 +32,7 @@ import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.UIManager;
 import javax.swing.event.MenuEvent;
 import javax.swing.event.MenuListener;
 
@@ -48,6 +49,12 @@ import com.raddle.comic.engine.PageInfo;
 import com.raddle.comic.engine.SectionInfo;
 
 public class ComicViewer {
+	static {
+		try {
+			UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+		} catch (Exception e) {
+		}
+	}
 	private static LogWrapper logger = new LogWrapper(LoggerFactory.getLogger(ComicViewer.class));
 	private JFrame frame;
 	private JPanel picPane;
@@ -67,6 +74,8 @@ public class ComicViewer {
 	private JMenuBar menuBar;
 	private JMenuItem mntmNewMenuItem;
 	private JMenu recentViewmenu;
+	private JMenu menu_1;
+	private JMenuItem menuItem_1;
 
 	/**
 	 * Launch the application.
@@ -172,6 +181,17 @@ public class ComicViewer {
 			}
 		});
 		menu.add(mntmNewMenuItem);
+
+		menu_1 = new JMenu("帮助");
+		menuBar.add(menu_1);
+
+		menuItem_1 = new JMenuItem("操作说明");
+		menuItem_1.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				JOptionPane.showMessageDialog(null, "上下箭头，空格，回车，鼠标点击和拖拽，移动图片\n左右箭头，PageUp和PageDown翻页\nCtrl+Enter全屏，Esc推出全屏");
+			}
+		});
+		menu_1.add(menuItem_1);
 		frame.getContentPane().setLayout(new BorderLayout(0, 0));
 
 		picPane = new JPanel() {
@@ -201,7 +221,8 @@ public class ComicViewer {
 				if (e.getKeyCode() == KeyEvent.VK_PAGE_UP || e.getKeyCode() == KeyEvent.VK_LEFT) {
 					changePage(false);
 				}
-				if (e.getKeyCode() == KeyEvent.VK_DOWN || e.getKeyCode() == KeyEvent.VK_SPACE || e.getKeyCode() == KeyEvent.VK_ENTER) {
+				if (e.getKeyCode() == KeyEvent.VK_DOWN || e.getKeyCode() == KeyEvent.VK_SPACE
+						|| (!e.isControlDown() && e.getKeyCode() == KeyEvent.VK_ENTER)) {
 					moveViewDown();
 				}
 				if (e.getKeyCode() == KeyEvent.VK_UP) {
@@ -227,14 +248,7 @@ public class ComicViewer {
 					showImage(true);
 				}
 				if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
-					if (isFullScreen) {
-						isFullScreen = false;
-						// 释放前一个frame
-						frame.dispose();
-						// 创建新的frame
-						createFrame();
-						frame.setVisible(true);
-					}
+					exitFullScreen();
 				}
 				if (e.getKeyCode() == KeyEvent.VK_M) {
 					if (!isFullScreen) {
@@ -256,6 +270,8 @@ public class ComicViewer {
 						GraphicsDevice gd = ge.getDefaultScreenDevice();
 						// 全屏设置
 						gd.setFullScreenWindow(frame);
+					} else {
+						exitFullScreen();
 					}
 				}
 			}
@@ -522,6 +538,17 @@ public class ComicViewer {
 			channelInfo = openComicDialog.getChannelInfo();
 			sectionList = null;
 			showImage(true);
+		}
+	}
+
+	private void exitFullScreen() {
+		if (isFullScreen) {
+			isFullScreen = false;
+			// 释放前一个frame
+			frame.dispose();
+			// 创建新的frame
+			createFrame();
+			frame.setVisible(true);
 		}
 	}
 }
