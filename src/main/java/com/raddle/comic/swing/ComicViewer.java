@@ -140,15 +140,7 @@ public class ComicViewer {
 				if (image != null) {
 					g.setColor(Color.BLACK);
 					g.fillRect(0, 0, this.getWidth(), this.getHeight());
-					int x = picStartPoint.x;
-					if (this.getWidth() > image.getWidth(null)) {
-						x = (int) ((this.getWidth() - image.getWidth(null)) / 2.0);
-					}
-					int y = picStartPoint.y;
-					if (this.getHeight() > image.getHeight(null)) {
-						y = (int) ((this.getHeight() - image.getHeight(null)) / 2.0);
-					}
-					g.drawImage(image, x, y, this);
+					g.drawImage(image, picStartPoint.x, picStartPoint.y, this);
 				}
 			}
 
@@ -217,6 +209,7 @@ public class ComicViewer {
 
 	private void movePic(int changedX, int changedY) {
 		if (image != null) {
+			// 移动图片，图片边界不能超出窗口
 			int x = picStartPoint.x + changedX;
 			if (x < 0) {
 				if (picPane.getWidth() > image.getWidth(null)) {
@@ -245,6 +238,13 @@ public class ComicViewer {
 					picStartPoint.y = 0;
 				}
 			}
+			// 窗口大于图片，图片剧中
+			if (picPane.getWidth() > image.getWidth(null)) {
+				picStartPoint.x = (int) ((picPane.getWidth() - image.getWidth(null)) / 2.0);
+			}
+			if (picPane.getHeight() > image.getHeight(null)) {
+				picStartPoint.y = (int) ((picPane.getHeight() - image.getHeight(null)) / 2.0);
+			}
 		}
 	}
 
@@ -266,6 +266,9 @@ public class ComicViewer {
 							try {
 								image = loadImage(pageInfo);
 								picStartPoint = new Point();
+								// 漫画是从右上角开始
+								picStartPoint.x = picPane.getWidth() - image.getWidth(null);
+								movePic(0, 0);
 								picPane.repaint();
 							} catch (Exception e) {
 								logger.log(e.getMessage(), e);
