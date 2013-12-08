@@ -45,15 +45,10 @@ public class RecentViewHelper {
 		}
 	}
 
-	public static void updateRecentView(ChannelInfo channelInfo, String comicId, String sectionId, Integer pageNo) {
+	public static void updateRecentView(ChannelInfo channelInfo, String comicId, String sectionId, Integer pageNo, Integer maxPageNo) {
 		List<HierarchicalConfiguration> views = config.configurationsAt("recents.views.page");
 		if (views == null) {
-			config.addProperty("recents.views.page(-1).channel.path", channelInfo.getScriptFile().getAbsolutePath());
-			config.addProperty("recents.views.page.channel.name", channelInfo.getName());
-			config.addProperty("recents.views.page.comicId", comicId);
-			config.addProperty("recents.views.page.sectionId", pageNo);
-			config.addProperty("recents.views.page.pageNo", pageNo);
-			config.addProperty("recents.views.page.time", System.currentTimeMillis());
+			addNewViewInfo(channelInfo, comicId, sectionId, pageNo, maxPageNo);
 		} else {
 			for (HierarchicalConfiguration view : views) {
 				if (channelInfo.getScriptFile().getAbsolutePath().equals(view.getProperty("channel.path"))
@@ -66,14 +61,19 @@ public class RecentViewHelper {
 				}
 			}
 			// 没有匹配的就新增
-			config.addProperty("recents.views.page(-1).channel.path", channelInfo.getScriptFile().getAbsolutePath());
-			config.addProperty("recents.views.page.channel.name", channelInfo.getName());
-			config.addProperty("recents.views.page.comicId", comicId);
-			config.addProperty("recents.views.page.sectionId", pageNo);
-			config.addProperty("recents.views.page.pageNo", pageNo);
-			config.addProperty("recents.views.page.time", System.currentTimeMillis());
+			addNewViewInfo(channelInfo, comicId, sectionId, pageNo, maxPageNo);
 		}
 		save();
+	}
+
+	private static void addNewViewInfo(ChannelInfo channelInfo, String comicId, String sectionId, Integer pageNo, Integer maxPageNo) {
+		config.addProperty("recents.views.page(-1).channel.path", channelInfo.getScriptFile().getAbsolutePath());
+		config.addProperty("recents.views.page.channel.name", channelInfo.getName());
+		config.addProperty("recents.views.page.comicId", comicId);
+		config.addProperty("recents.views.page.sectionId", sectionId);
+		config.addProperty("recents.views.page.pageNo", pageNo);
+		config.addProperty("recents.views.page.maxPageNo", maxPageNo);
+		config.addProperty("recents.views.page.time", System.currentTimeMillis());
 	}
 
 	public static List<RecentViewInfo> getRecentViews() {
@@ -87,6 +87,7 @@ public class RecentViewHelper {
 				info.setComicId(view.getString("comicId"));
 				info.setSectionId(view.getString("sectionId"));
 				info.setPageNo(view.getInt("pageNo"));
+				info.setMaxPageNo(view.getInt("maxPageNo"));
 				info.setTime(view.getLong("time"));
 				list.add(info);
 			}
