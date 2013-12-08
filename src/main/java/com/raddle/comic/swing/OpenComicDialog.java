@@ -20,10 +20,12 @@ import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.border.EmptyBorder;
 
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.LoggerFactory;
 
 import com.raddle.comic.LogWrapper;
+import com.raddle.comic.RecentViewInfo;
 import com.raddle.comic.engine.ChannelInfo;
 import com.raddle.comic.engine.ComicPluginEngine;
 import com.raddle.comic.engine.PageInfo;
@@ -213,6 +215,38 @@ public class OpenComicDialog extends JDialog {
 			ChannelInfo selectedItem = (ChannelInfo) channelBox.getSelectedItem();
 			String msg = "主页：" + selectedItem.getHome();
 			descTxt.setText(msg + "\n描述：\n" + selectedItem.getDesc());
+		}
+	}
+
+	public void initRecentView(RecentViewInfo viewInfo) {
+		for (int i = 0; i < channelBox.getItemCount(); i++) {
+			ChannelInfo item = channelBox.getItemAt(i);
+			if (item.getScriptFile().getName().equals(FilenameUtils.getName(viewInfo.getChannelPath()))) {
+				channelBox.setSelectedItem(item);
+				break;
+			}
+		}
+		comicIdTxt.setText(viewInfo.getComicId());
+		sectionIdTxt.setText(viewInfo.getSectionId());
+		ComicPluginEngine pluginEngine = new ComicPluginEngine();
+		try {
+			pluginEngine.init(((ChannelInfo) channelBox.getSelectedItem()).getScriptFile());
+			List<PageInfo> pages = pluginEngine.getPages(comicIdTxt.getText(), sectionIdTxt.getText());
+			pageNoBox.removeAllItems();
+			if (pages != null && pages.size() == 0) {
+				return;
+			}
+			pageInfos = pages;
+			for (PageInfo pageInfo : pages) {
+				pageNoBox.addItem(pageInfo);
+				if (pageInfo.getPageNo().equals(viewInfo.getPageNo())) {
+					pageNoBox.setSelectedItem(pageInfo);
+				}
+			}
+		} catch (Exception e) {
+			logger.log(e.getMessage(), e);
+		} finally {
+			pluginEngine.close();
 		}
 	}
 

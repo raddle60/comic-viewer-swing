@@ -111,31 +111,7 @@ public class ComicViewer {
 			public void actionPerformed(ActionEvent e) {
 				openComicDialog.setModal(true);
 				openComicDialog.setVisible(true);
-				if (openComicDialog.getPageInfo() != null && openComicDialog.getPageInfo().size() > 0) {
-					// 清理掉以前的引擎
-					if (picEngine != null) {
-						picEngine.close();
-						picEngine = null;
-					}
-					try {
-						picEngine = new ComicPluginEngine();
-						picEngine.init(openComicDialog.getChannelInfo().getScriptFile());
-					} catch (IOException e1) {
-						logger.log(e1.getMessage(), e);
-						JOptionPane.showMessageDialog(null, "打开脚本失败," + e1.getMessage());
-						return;
-					}
-					pageMap.clear();
-					for (PageInfo pageInfo : openComicDialog.getPageInfo()) {
-						pageMap.put(pageInfo.getPageNo(), pageInfo);
-					}
-					comicId = openComicDialog.getComicId();
-					sectionId = openComicDialog.getSectionId();
-					pageNo = openComicDialog.getPageNo();
-					channelInfo = openComicDialog.getChannelInfo();
-					sectionList = null;
-					showImage(true);
-				}
+				openComic();
 			}
 		});
 		menu.add(menuItem);
@@ -156,7 +132,16 @@ public class ComicViewer {
 						if (recentViews.get(0).getTime() > component.getViewInfo().getTime()) {
 							recentViewmenu.removeAll();
 							for (RecentViewInfo recentViewInfo : recentViews) {
-								recentViewmenu.add(new RecentViewMenuItem(recentViewInfo));
+								final RecentViewMenuItem recentItem = new RecentViewMenuItem(recentViewInfo);
+								recentItem.addActionListener(new ActionListener() {
+									public void actionPerformed(ActionEvent e) {
+										openComicDialog.initRecentView(recentItem.getViewInfo());
+										openComicDialog.setModal(true);
+										openComicDialog.setVisible(true);
+										openComic();
+									}
+								});
+								recentViewmenu.add(recentItem);
 							}
 						}
 					}
@@ -164,7 +149,16 @@ public class ComicViewer {
 					recentViewmenu.removeAll();
 					List<RecentViewInfo> recentViews = RecentViewHelper.getRecentViews();
 					for (RecentViewInfo recentViewInfo : recentViews) {
-						recentViewmenu.add(new RecentViewMenuItem(recentViewInfo));
+						final RecentViewMenuItem recentItem = new RecentViewMenuItem(recentViewInfo);
+						recentItem.addActionListener(new ActionListener() {
+							public void actionPerformed(ActionEvent e) {
+								openComicDialog.initRecentView(recentItem.getViewInfo());
+								openComicDialog.setModal(true);
+								openComicDialog.setVisible(true);
+								openComic();
+							}
+						});
+						recentViewmenu.add(recentItem);
 					}
 				}
 			}
@@ -500,6 +494,34 @@ public class ComicViewer {
 				// 本页看完了，下一页
 				changePage(true);
 			}
+		}
+	}
+
+	private void openComic() {
+		if (openComicDialog.getPageInfo() != null && openComicDialog.getPageInfo().size() > 0) {
+			// 清理掉以前的引擎
+			if (picEngine != null) {
+				picEngine.close();
+				picEngine = null;
+			}
+			try {
+				picEngine = new ComicPluginEngine();
+				picEngine.init(openComicDialog.getChannelInfo().getScriptFile());
+			} catch (IOException e1) {
+				logger.log(e1.getMessage(), e1);
+				JOptionPane.showMessageDialog(null, "打开脚本失败," + e1.getMessage());
+				return;
+			}
+			pageMap.clear();
+			for (PageInfo pageInfo : openComicDialog.getPageInfo()) {
+				pageMap.put(pageInfo.getPageNo(), pageInfo);
+			}
+			comicId = openComicDialog.getComicId();
+			sectionId = openComicDialog.getSectionId();
+			pageNo = openComicDialog.getPageNo();
+			channelInfo = openComicDialog.getChannelInfo();
+			sectionList = null;
+			showImage(true);
 		}
 	}
 }
