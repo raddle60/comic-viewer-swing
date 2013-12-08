@@ -121,6 +121,11 @@ public class ComicPluginEngine {
 		return pageInfos;
 	}
 
+	public void loadRemoteImage(String comicId, String sectionId, String imageUrl) {
+		Function loadRemoteImage = (Function) topScope.get("loadRemoteImage", topScope);
+		loadRemoteImage.call(context, topScope, topScope, new Object[] { comicId, sectionId, imageUrl });
+	}
+
 	public static List<ChannelInfo> getChannelList(File pluginDir) {
 		List<ChannelInfo> list = new ArrayList<ChannelInfo>();
 		if (pluginDir.isDirectory()) {
