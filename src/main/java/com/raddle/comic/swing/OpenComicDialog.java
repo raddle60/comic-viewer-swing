@@ -173,7 +173,7 @@ public class OpenComicDialog extends JDialog {
 			}
 		}
 		// 填充channel
-		List<ChannelInfo> channelList = ComicPluginEngine.getChannelList(new File("D:\\workspaces\\raddle\\playlist\\src\\main\\resources"));
+		List<ChannelInfo> channelList = ComicPluginEngine.getChannelList(new File("channels"));
 		channelBox.removeAllItems();
 		for (ChannelInfo channelInfo : channelList) {
 			channelBox.addItem(channelInfo);
