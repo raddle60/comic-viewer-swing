@@ -409,7 +409,7 @@ public class ComicViewer {
 			img = ImageIO.read(new File(pageInfo.getPageUrl()));
 		} else {
 			// 缓存
-			File cacheFile = new File(System.getProperty("user.home") + "/comic-view/cache/img/" + channelInfo.getName() + "/" + comicId + "/"
+			File cacheFile = new File(System.getProperty("user.home") + "/.comic-view/cache/img/" + channelInfo.getName() + "/" + comicId + "/"
 					+ sectionId + "/" + FilenameUtils.getName(pageInfo.getPageUrl()));
 			if (cacheFile.exists()) {
 				img = ImageIO.read(cacheFile);
