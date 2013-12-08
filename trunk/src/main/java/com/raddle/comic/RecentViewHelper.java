@@ -107,6 +107,9 @@ public class RecentViewHelper {
 				return new Long(o2.getTime()).compareTo(new Long(o1.getTime()));
 			}
 		});
+		if (list.size() > 30) {
+			list = list.subList(0, 30);
+		}
 		return list;
 	}
 }
