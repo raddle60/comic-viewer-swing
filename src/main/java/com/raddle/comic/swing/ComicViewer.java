@@ -128,7 +128,7 @@ public class ComicViewer {
 					pageNo = openComicDialog.getPageNo();
 					channelInfo = openComicDialog.getChannelInfo();
 					sectionList = null;
-					showImage();
+					showImage(true);
 				}
 			}
 		});
@@ -165,22 +165,22 @@ public class ComicViewer {
 						// 没有到最上面,往上翻3/4个高度
 						movePic(0, (int) (picPane.getHeight() * 0.9));
 						picPane.repaint();
-					} else if (image.getHeight(null) + picStartPoint.y > picPane.getHeight()) {
+					} else if (image.getWidth(null) + picStartPoint.x > picPane.getWidth()) {
 						// 到最上面，没在最右边，往右翻3/4个宽度,移动到右上
 						movePic(0 - (int) (picPane.getWidth() * 0.9), 0 - image.getHeight(null));
 						picPane.repaint();
 					} else {
-						// 本页看完了，下一页
-						changePage(true);
+						// 本页看完了，上一页
+						changePage(false);
 					}
 				}
 				if (e.getKeyCode() == KeyEvent.VK_HOME) {
 					pageNo = 1;
-					showImage();
+					showImage(true);
 				}
 				if (e.getKeyCode() == KeyEvent.VK_END) {
 					pageNo = pageMap.size();
-					showImage();
+					showImage(true);
 				}
 				if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
 					if (isFullScreen) {
@@ -300,7 +300,7 @@ public class ComicViewer {
 		}
 	}
 
-	private synchronized void showImage() {
+	private synchronized void showImage(final boolean isNextPage) {
 		if (!loading) {
 			loading = true;
 			frame.setTitle(getBasicTitle() + " - loading");
@@ -318,8 +318,13 @@ public class ComicViewer {
 							try {
 								image = loadImage(pageInfo);
 								picStartPoint = new Point();
-								// 漫画是从右上角开始
-								picStartPoint.x = picPane.getWidth() - image.getWidth(null);
+								if (isNextPage) {
+									// 下一页从右上角开始
+									picStartPoint.x = picPane.getWidth() - image.getWidth(null);
+								} else {
+									// 上一页从左下角开始
+									picStartPoint.y = picPane.getHeight() - image.getHeight(null);
+								}
 								movePic(0, 0);
 								picPane.repaint();
 							} catch (Exception e) {
@@ -395,7 +400,7 @@ public class ComicViewer {
 				loading = false;
 				frame.setTitle(getBasicTitle());
 				if (success) {
-					showImage();
+					showImage(isNextPage);
 				}
 			}
 		}
