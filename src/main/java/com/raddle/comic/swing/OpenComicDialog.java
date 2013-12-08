@@ -4,6 +4,8 @@ import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
 import java.io.File;
 import java.util.List;
 
@@ -38,6 +40,7 @@ public class OpenComicDialog extends JDialog {
 	private JComboBox<ChannelInfo> channelBox;
 	private JComboBox<PageInfo> pageNoBox;
 	private List<PageInfo> pageInfos;
+	private JTextArea descTxt;
 
 	/**
 	 * Launch the application.
@@ -67,6 +70,21 @@ public class OpenComicDialog extends JDialog {
 		contentPanel.add(lblNewLabel);
 
 		channelBox = new JComboBox<ChannelInfo>();
+		channelBox.addItemListener(new ItemListener() {
+			public void itemStateChanged(ItemEvent e) {
+				if (e.getStateChange() == ItemEvent.SELECTED) {
+					if (channelBox.getSelectedItem() != null) {
+						ChannelInfo selectedItem = (ChannelInfo) channelBox.getSelectedItem();
+						String msg = "主页：" + selectedItem.getHome();
+						descTxt.setText(msg + "\n描述：\n" + selectedItem.getDesc());
+						comicIdTxt.setText("");
+						sectionIdTxt.setText("");
+						pageNoBox.removeAllItems();
+						pageInfos = null;
+					}
+				}
+			}
+		});
 		channelBox.setBounds(74, 7, 267, 21);
 		contentPanel.add(channelBox);
 
@@ -100,7 +118,7 @@ public class OpenComicDialog extends JDialog {
 		scrollPane.setBounds(10, 114, 429, 229);
 		contentPanel.add(scrollPane);
 
-		JTextArea descTxt = new JTextArea();
+		descTxt = new JTextArea();
 		scrollPane.setViewportView(descTxt);
 
 		JButton getBtn = new JButton("获取");
