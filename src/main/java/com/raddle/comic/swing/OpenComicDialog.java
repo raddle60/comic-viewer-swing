@@ -56,7 +56,7 @@ public class OpenComicDialog extends JDialog {
 	 * Create the dialog.
 	 */
 	public OpenComicDialog() {
-		setBounds(100, 100, 450, 300);
+		setBounds(100, 100, 460, 418);
 		getContentPane().setLayout(new BorderLayout());
 		contentPanel.setBorder(new EmptyBorder(5, 5, 5, 5));
 		getContentPane().add(contentPanel, BorderLayout.CENTER);
@@ -97,7 +97,7 @@ public class OpenComicDialog extends JDialog {
 		contentPanel.add(pageNoBox);
 
 		JScrollPane scrollPane = new JScrollPane();
-		scrollPane.setBounds(10, 114, 330, 105);
+		scrollPane.setBounds(10, 114, 429, 229);
 		contentPanel.add(scrollPane);
 
 		JTextArea descTxt = new JTextArea();
@@ -140,7 +140,7 @@ public class OpenComicDialog extends JDialog {
 				}
 			}
 		});
-		getBtn.setBounds(341, 81, 93, 23);
+		getBtn.setBounds(346, 81, 93, 23);
 		contentPanel.add(getBtn);
 		{
 			JPanel buttonPane = new JPanel();
@@ -180,7 +180,8 @@ public class OpenComicDialog extends JDialog {
 		}
 		if (channelBox.getSelectedItem() != null) {
 			ChannelInfo selectedItem = (ChannelInfo) channelBox.getSelectedItem();
-			descTxt.setText(selectedItem.getDesc());
+			String msg = "主页：" + selectedItem.getHome();
+			descTxt.setText(msg + "\n描述：\n" + selectedItem.getDesc());
 		}
 	}
 
