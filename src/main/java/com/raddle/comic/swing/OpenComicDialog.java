@@ -27,6 +27,7 @@ import com.raddle.comic.LogWrapper;
 import com.raddle.comic.engine.ChannelInfo;
 import com.raddle.comic.engine.ComicPluginEngine;
 import com.raddle.comic.engine.PageInfo;
+import com.raddle.comic.engine.SectionInfo;
 
 public class OpenComicDialog extends JDialog {
 	private static LogWrapper logger = new LogWrapper(LoggerFactory.getLogger(OpenComicDialog.class));
@@ -137,6 +138,17 @@ public class OpenComicDialog extends JDialog {
 							JOptionPane.showMessageDialog(null, "没有填写章节id");
 							return;
 						}
+						List<SectionInfo> sections = pluginEngine.getSections(comicIdTxt.getText());
+						boolean matched = false;
+						for (SectionInfo sectionInfo : sections) {
+							if (sectionIdTxt.getText().equals(sectionInfo.getSectionId())) {
+								matched = true;
+								break;
+							}
+						}
+						if (!matched) {
+							JOptionPane.showMessageDialog(null, "没有对应的章节信息");
+						}
 						List<PageInfo> pages = pluginEngine.getPages(comicIdTxt.getText(), sectionIdTxt.getText());
 						pageNoBox.removeAllItems();
 						if (pages != null && pages.size() == 0) {
@@ -183,6 +195,7 @@ public class OpenComicDialog extends JDialog {
 				JButton cancelButton = new JButton("Cancel");
 				cancelButton.addActionListener(new ActionListener() {
 					public void actionPerformed(ActionEvent e) {
+						pageInfos = null;
 						OpenComicDialog.this.setVisible(false);
 					}
 				});
