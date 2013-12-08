@@ -58,6 +58,7 @@ public class ComicViewer {
 	private ChannelInfo channelInfo;
 	private Integer pageNo;
 	private boolean loading = false;
+	private JMenuBar menuBar;
 
 	/**
 	 * Launch the application.
@@ -91,7 +92,7 @@ public class ComicViewer {
 		frame.setBounds(100, 100, 651, 467);
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-		JMenuBar menuBar = new JMenuBar();
+		menuBar = new JMenuBar();
 		frame.setJMenuBar(menuBar);
 
 		JMenu menu = new JMenu("文件");
@@ -178,6 +179,12 @@ public class ComicViewer {
 				if (e.getKeyCode() == KeyEvent.VK_END) {
 					pageNo = pageMap.size();
 					showImage();
+				}
+				if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
+					System.exit(1);
+				}
+				if (e.getKeyCode() == KeyEvent.VK_M) {
+					menuBar.setVisible(!menuBar.isVisible());
 				}
 			}
 		});
@@ -389,18 +396,20 @@ public class ComicViewer {
 	}
 
 	private void moveViewDown() {
-		if (image.getHeight(null) + picStartPoint.y > picPane.getHeight()) {
-			// 没有到底,往下翻3/4个高度
-			movePic(0, 0 - (int) (picPane.getHeight() * 0.9));
-			picPane.repaint();
-		} else if (picStartPoint.x < 0) {
-			// 到底了，没在最左边，往左翻3/4个宽度
-			picStartPoint.y = 0;
-			movePic((int) (picPane.getWidth() * 0.9), 0);
-			picPane.repaint();
-		} else {
-			// 本页看完了，下一页
-			changePage(true);
+		if (image != null) {
+			if (image.getHeight(null) + picStartPoint.y > picPane.getHeight()) {
+				// 没有到底,往下翻3/4个高度
+				movePic(0, 0 - (int) (picPane.getHeight() * 0.9));
+				picPane.repaint();
+			} else if (picStartPoint.x < 0) {
+				// 到底了，没在最左边，往左翻3/4个宽度
+				picStartPoint.y = 0;
+				movePic((int) (picPane.getWidth() * 0.9), 0);
+				picPane.repaint();
+			} else {
+				// 本页看完了，下一页
+				changePage(true);
+			}
 		}
 	}
 }
