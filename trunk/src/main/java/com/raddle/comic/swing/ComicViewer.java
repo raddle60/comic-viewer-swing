@@ -158,7 +158,7 @@ public class ComicViewer {
 				if (e.getKeyCode() == KeyEvent.VK_PAGE_UP || e.getKeyCode() == KeyEvent.VK_LEFT) {
 					changePage(false);
 				}
-				if (e.getKeyCode() == KeyEvent.VK_DOWN || e.getKeyCode() == KeyEvent.VK_SPACE) {
+				if (e.getKeyCode() == KeyEvent.VK_DOWN || e.getKeyCode() == KeyEvent.VK_SPACE || e.getKeyCode() == KeyEvent.VK_ENTER) {
 					moveViewDown();
 				}
 				if (e.getKeyCode() == KeyEvent.VK_UP) {
