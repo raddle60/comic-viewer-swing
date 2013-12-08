@@ -7,14 +7,6 @@ var channel = {
 	desc : "http://comic.sfacg.com/HTML/OnePiece/730/\nOnePiece是漫画Id\n730是章节Id\n"+
 	"http://comic.sfacg.com/HTML/YJDWB/SP/SP1/\nYJDWB是漫画Id\nSP/SP1是章节Id"
 }
-/**
- * 获得动漫的名称
- * 
- * @param comicId
- */
-function getComic(comicId) {
-	return null;
-}
 
 /**
  * 获得章节列表
@@ -74,6 +66,12 @@ function getPages(comicId, sectionId) {
 	return null;
 }
 
+/**
+ * 加载图片
+ * @param comicId
+ * @param sectionId
+ * @param imageUrl
+ */
 function loadRemoteImage(comicId, sectionId, imageUrl) {
 	httpclient.saveRemoteImage(channel.name,comicId,sectionId,imageUrl,{});
 }
