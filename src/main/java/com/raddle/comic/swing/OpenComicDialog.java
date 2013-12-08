@@ -153,11 +153,14 @@ public class OpenComicDialog extends JDialog {
 							lastSectionIdLeb.setText("最后章节：" + sections.get(sections.size() - 1).getSectionId());
 						}
 						if (!matched) {
+							pageInfos = null;
+							pageNoBox.removeAllItems();
 							JOptionPane.showMessageDialog(null, "没有对应的章节信息");
 							return;
 						}
 						List<PageInfo> pages = pluginEngine.getPages(comicIdTxt.getText(), sectionIdTxt.getText());
 						pageNoBox.removeAllItems();
+						pageInfos = null;
 						if (pages != null && pages.size() == 0) {
 							JOptionPane.showMessageDialog(null, "没有获得到页面信息");
 							return;
