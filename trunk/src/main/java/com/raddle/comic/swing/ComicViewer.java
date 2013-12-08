@@ -32,12 +32,16 @@ import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.event.MenuEvent;
+import javax.swing.event.MenuListener;
 
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.LoggerFactory;
 
 import com.raddle.comic.LogWrapper;
+import com.raddle.comic.RecentViewHelper;
+import com.raddle.comic.RecentViewInfo;
 import com.raddle.comic.engine.ChannelInfo;
 import com.raddle.comic.engine.ComicPluginEngine;
 import com.raddle.comic.engine.PageInfo;
@@ -61,6 +65,8 @@ public class ComicViewer {
 	private boolean loading = false;
 	private boolean isFullScreen = false;
 	private JMenuBar menuBar;
+	private JMenuItem mntmNewMenuItem;
+	private JMenu recentViewmenu;
 
 	/**
 	 * Launch the application.
@@ -133,6 +139,45 @@ public class ComicViewer {
 			}
 		});
 		menu.add(menuItem);
+
+		recentViewmenu = new JMenu("最近打开");
+		recentViewmenu.addMenuListener(new MenuListener() {
+			public void menuCanceled(MenuEvent e) {
+			}
+
+			public void menuDeselected(MenuEvent e) {
+			}
+
+			public void menuSelected(MenuEvent e) {
+				if (recentViewmenu.getComponentCount() > 0) {
+					RecentViewMenuItem component = (RecentViewMenuItem) recentViewmenu.getComponent(0);
+					List<RecentViewInfo> recentViews = RecentViewHelper.getRecentViews();
+					if (recentViews.size() > 0) {
+						if (recentViews.get(0).getTime() > component.getViewInfo().getTime()) {
+							recentViewmenu.removeAll();
+							for (RecentViewInfo recentViewInfo : recentViews) {
+								recentViewmenu.add(new RecentViewMenuItem(recentViewInfo));
+							}
+						}
+					}
+				} else {
+					recentViewmenu.removeAll();
+					List<RecentViewInfo> recentViews = RecentViewHelper.getRecentViews();
+					for (RecentViewInfo recentViewInfo : recentViews) {
+						recentViewmenu.add(new RecentViewMenuItem(recentViewInfo));
+					}
+				}
+			}
+		});
+		menu.add(recentViewmenu);
+
+		mntmNewMenuItem = new JMenuItem("退出");
+		mntmNewMenuItem.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				System.exit(1);
+			}
+		});
+		menu.add(mntmNewMenuItem);
 		frame.getContentPane().setLayout(new BorderLayout(0, 0));
 
 		picPane = new JPanel() {
@@ -332,6 +377,11 @@ public class ComicViewer {
 								}
 								movePic(0, 0);
 								picPane.repaint();
+								try {
+									RecentViewHelper.updateRecentView(channelInfo, comicId, sectionId, pageNo, pageMap.size());
+								} catch (Exception e) {
+									logger.log(e.getMessage(), e);
+								}
 							} catch (Exception e) {
 								logger.log(e.getMessage(), e);
 								JOptionPane.showMessageDialog(null, "加载图片失败," + e.getMessage());

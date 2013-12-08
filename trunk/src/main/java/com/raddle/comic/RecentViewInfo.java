@@ -6,6 +6,7 @@ public class RecentViewInfo {
 	private String comicId;
 	private String sectionId;
 	private Integer pageNo;
+	private Integer maxPageNo;
 	private long time;
 
 	public String getChannelName() {
@@ -54,5 +55,13 @@ public class RecentViewInfo {
 
 	public void setTime(long time) {
 		this.time = time;
+	}
+
+	public Integer getMaxPageNo() {
+		return maxPageNo;
+	}
+
+	public void setMaxPageNo(Integer maxPageNo) {
+		this.maxPageNo = maxPageNo;
 	}
 }
