@@ -154,20 +154,8 @@ public class ComicViewer {
 				if (e.getKeyCode() == KeyEvent.VK_PAGE_UP || e.getKeyCode() == KeyEvent.VK_LEFT) {
 					changePage(false);
 				}
-				if (e.getKeyCode() == KeyEvent.VK_DOWN) {
-					if (image.getHeight(null) + picStartPoint.y > picPane.getHeight()) {
-						// 没有到底,往下翻3/4个高度
-						movePic(0, 0 - (int) (picPane.getHeight() * 0.9));
-						picPane.repaint();
-					} else if (picStartPoint.x < 0) {
-						// 到底了，没在最左边，往左翻3/4个宽度
-						picStartPoint.y = 0;
-						movePic((int) (picPane.getWidth() * 0.9), 0);
-						picPane.repaint();
-					} else {
-						// 本页看完了，下一页
-						changePage(true);
-					}
+				if (e.getKeyCode() == KeyEvent.VK_DOWN || e.getKeyCode() == KeyEvent.VK_SPACE) {
+					moveViewDown();
 				}
 				if (e.getKeyCode() == KeyEvent.VK_UP) {
 					if (picStartPoint.y < 0) {
@@ -229,7 +217,7 @@ public class ComicViewer {
 
 			@Override
 			public void mouseClicked(MouseEvent e) {
-				changePage(true);
+				moveViewDown();
 			}
 		});
 		//
@@ -398,5 +386,21 @@ public class ComicViewer {
 			}
 		}
 		return img;
+	}
+
+	private void moveViewDown() {
+		if (image.getHeight(null) + picStartPoint.y > picPane.getHeight()) {
+			// 没有到底,往下翻3/4个高度
+			movePic(0, 0 - (int) (picPane.getHeight() * 0.9));
+			picPane.repaint();
+		} else if (picStartPoint.x < 0) {
+			// 到底了，没在最左边，往左翻3/4个宽度
+			picStartPoint.y = 0;
+			movePic((int) (picPane.getWidth() * 0.9), 0);
+			picPane.repaint();
+		} else {
+			// 本页看完了，下一页
+			changePage(true);
+		}
 	}
 }
