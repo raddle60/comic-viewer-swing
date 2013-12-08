@@ -40,7 +40,6 @@ import org.slf4j.LoggerFactory;
 import com.raddle.comic.LogWrapper;
 import com.raddle.comic.engine.ChannelInfo;
 import com.raddle.comic.engine.ComicPluginEngine;
-import com.raddle.comic.engine.HttpHelper;
 import com.raddle.comic.engine.PageInfo;
 import com.raddle.comic.engine.SectionInfo;
 
@@ -417,8 +416,10 @@ public class ComicViewer {
 				if (!cacheFile.getParentFile().exists()) {
 					cacheFile.getParentFile().mkdirs();
 				}
-				HttpHelper.saveRemotePage(pageInfo.getPageUrl(), cacheFile);
-				img = ImageIO.read(cacheFile);
+				picEngine.loadRemoteImage(comicId, sectionId, pageInfo.getPageUrl());
+				if (cacheFile.exists()) {
+					img = ImageIO.read(cacheFile);
+				}
 			}
 		}
 		return img;

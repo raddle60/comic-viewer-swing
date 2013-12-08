@@ -7,7 +7,9 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Map;
 
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -21,9 +23,14 @@ import org.apache.http.util.EntityUtils;
  * 
  */
 public class HttpHelper {
-	public static String getRemotePage(String url, String charset) throws IOException {
+	public static String getRemotePage(String url, String charset, Map<Object, Object> headers) throws IOException {
 		CloseableHttpClient httpclient = HttpClients.createMinimal();
 		HttpGet httpGet = new HttpGet(url);
+		if (headers != null) {
+			for (Map.Entry<Object, Object> entry : headers.entrySet()) {
+				httpGet.addHeader(entry.getKey() + "", entry.getValue() + "");
+			}
+		}
 		CloseableHttpResponse response = httpclient.execute(httpGet);
 		try {
 			HttpEntity entity1 = response.getEntity();
@@ -38,9 +45,21 @@ public class HttpHelper {
 		}
 	}
 
-	public static void saveRemotePage(String url, File file) throws IOException {
+	public static void saveRemoteImage(String channel, String comicId, String sectionId, String imageUrl, Map<Object, Object> headers)
+			throws IOException {
+		File cacheFile = new File(System.getProperty("user.home") + "/.comic-view/cache/img/" + channel + "/" + comicId + "/" + sectionId + "/"
+				+ FilenameUtils.getName(imageUrl));
+		saveRemotePage(imageUrl, headers, cacheFile);
+	}
+
+	public static void saveRemotePage(String url, Map<Object, Object> headers, File file) throws IOException {
 		CloseableHttpClient httpclient = HttpClients.createMinimal();
 		HttpGet httpGet = new HttpGet(url);
+		if (headers != null) {
+			for (Map.Entry<Object, Object> entry : headers.entrySet()) {
+				httpGet.addHeader(entry.getKey() + "", entry.getValue() + "");
+			}
+		}
 		CloseableHttpResponse response = httpclient.execute(httpGet);
 		try {
 			HttpEntity entity1 = response.getEntity();
