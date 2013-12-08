@@ -154,6 +154,7 @@ public class OpenComicDialog extends JDialog {
 						}
 						if (!matched) {
 							JOptionPane.showMessageDialog(null, "没有对应的章节信息");
+							return;
 						}
 						List<PageInfo> pages = pluginEngine.getPages(comicIdTxt.getText(), sectionIdTxt.getText());
 						pageNoBox.removeAllItems();
