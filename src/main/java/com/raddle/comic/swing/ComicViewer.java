@@ -536,7 +536,7 @@ public class ComicViewer {
 				pageMap.put(pageInfo.getPageNo(), pageInfo);
 			}
 			comicId = openComicDialog.getComicId();
-			comicName = openComicDialog.getComicId();
+			comicName = openComicDialog.getComicName();
 			sectionId = openComicDialog.getSectionId();
 			pageNo = openComicDialog.getPageNo();
 			channelInfo = openComicDialog.getChannelInfo();

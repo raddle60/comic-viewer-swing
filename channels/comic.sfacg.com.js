@@ -15,6 +15,12 @@ var channel = {
  */
 function getSections(comicId) {
 	var content = httpclient.getRemotePage("http://comic.sfacg.com/HTML/" + comicId + "/", "utf-8", {});
+	var comicNameRegex = new RegExp("<span class=\"font_red\">([^<>]+)</span>");
+	var comicName = "";
+	var comicMatched = content.match(comicNameRegex);
+	if(comicMatched != null){
+		comicName = comicMatched[1];
+	}
 	var sectionRegex =  new RegExp("<li><a href=\"/HTML/"+comicId+"/[^/]+/\" target=\"_blank\">(([^<>]+)|(<font color=red>([^<>]+)</font>))</a></li>","g");
 	var matched = content.match(sectionRegex);
 	var sections = [];
@@ -40,7 +46,10 @@ function getSections(comicId) {
 			});
 		}
 	}
-	return sections.reverse();
+	return {
+		comicName : comicName,
+		sections : sections.reverse()
+	};
 }
 
 /**

@@ -95,6 +95,7 @@ public class RecentViewHelper {
 				info.setChannelName(view.getString("channel.name"));
 				info.setChannelPath(view.getString("channel.path"));
 				info.setComicId(view.getString("comicId"));
+				info.setComicName(view.getString("comicName"));
 				info.setSectionId(view.getString("sectionId"));
 				info.setPageNo(view.getInt("pageNo"));
 				info.setMaxPageNo(view.getInt("maxPageNo"));
