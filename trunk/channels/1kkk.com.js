@@ -31,7 +31,6 @@ function getSections(comicId) {
 		for ( var i = 0; i < matched.length; i++) {
 			var sectionId = matched[i].match(new RegExp("href=\"/([^\"]+)/\""))[1];
 			var sectionName = matched[i].match(/>([^<>]+)</)[1];
-			log.info(sectionId+" "+sectionName);
 			sections.push({
 				sectionId : sectionId,
 				name : sectionName
@@ -60,6 +59,6 @@ function getPages(comicId, sectionId) {
  * @param sectionId
  * @param imageUrl
  */
-function loadRemoteImage(comicId, sectionId, imageUrl) {
+function loadRemoteImage(comicId, sectionId, pageNo, imageUrl) {
 	httpclient.saveRemoteImage(channel.name,comicId,sectionId,imageUrl,{});
 }
