@@ -9,8 +9,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-import javax.swing.JOptionPane;
-
 import org.apache.commons.io.FileUtils;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.Function;
@@ -67,12 +65,17 @@ public class ComicPluginEngine {
 		return null;
 	}
 
-	public List<SectionInfo> getSections(String comicId) {
-		List<SectionInfo> sectionInfos = new ArrayList<SectionInfo>();
+	public ComicInfo getSections(String comicId) {
+		ComicInfo comicInfo = new ComicInfo();
 		Function getSections = (Function) topScope.get("getSections", topScope);
-		Object result = getSections.call(context, topScope, context.newObject(topScope), new Object[] { comicId });
-		if (result instanceof NativeArray) {
-			NativeArray array = (NativeArray) result;
+		NativeObject result = (NativeObject) getSections.call(context, topScope, context.newObject(topScope), new Object[] { comicId });
+		if (result == null) {
+			logger.log("getSections can't find section comicId[{}]", comicId);
+			return null;
+		}
+		if (result.get("sections") instanceof NativeArray) {
+			List<SectionInfo> sectionInfos = new ArrayList<SectionInfo>();
+			NativeArray array = (NativeArray) result.get("sections");
 			for (Object object : array) {
 				if (object instanceof NativeObject) {
 					NativeObject o = (NativeObject) object;
@@ -86,12 +89,12 @@ public class ComicPluginEngine {
 					sectionInfos.add(info);
 				}
 			}
-		} else if (result != null) {
-			logger.log("getSections return unsupported result type :" + result.getClass());
-		} else {
-			logger.log("getSections can't find section comicId[{}]", comicId);
+			comicInfo.setSections(sectionInfos);
 		}
-		return sectionInfos;
+		if (result.get("comicName") != null && result.get("comicName") != Scriptable.NOT_FOUND) {
+			comicInfo.setComicName((String) result.get("comicName"));
+		}
+		return comicInfo;
 	}
 
 	public List<PageInfo> getPages(String comicId, String sectionId) {
@@ -139,7 +142,7 @@ public class ComicPluginEngine {
 						channelInfo.setScriptFile(file);
 						list.add(channelInfo);
 					}
-				} catch (IOException e) {
+				} catch (Exception e) {
 					logger.log(e.getMessage(), e);
 				} finally {
 					pluginEngine.close();
@@ -147,7 +150,6 @@ public class ComicPluginEngine {
 			}
 		} else {
 			logger.log("dir[{}] not exist or not a dir", pluginDir);
-			JOptionPane.showMessageDialog(null, LogWrapper.replacePlaceHolder("目录[{}]不存在或不是目录", pluginDir));
 		}
 		return list;
 	}
