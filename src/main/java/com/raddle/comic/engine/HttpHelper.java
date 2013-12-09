@@ -24,24 +24,28 @@ import org.apache.http.util.EntityUtils;
  */
 public class HttpHelper {
 	public static String getRemotePage(String url, String charset, Map<Object, Object> headers) throws IOException {
-		CloseableHttpClient httpclient = HttpClients.createMinimal();
-		HttpGet httpGet = new HttpGet(url);
-		if (headers != null) {
-			for (Map.Entry<Object, Object> entry : headers.entrySet()) {
-				httpGet.addHeader(entry.getKey() + "", entry.getValue() + "");
-			}
-		}
-		CloseableHttpResponse response = httpclient.execute(httpGet);
+		CloseableHttpClient httpclient = HttpClients.createDefault();
 		try {
-			HttpEntity entity1 = response.getEntity();
-			if (response.getStatusLine().getStatusCode() == 200) {
-				return EntityUtils.toString(entity1, charset);
-			} else {
-				EntityUtils.consume(entity1);
-				throw new RuntimeException("获得内容失败:" + response.getStatusLine());
+			HttpGet httpGet = new HttpGet(url);
+			if (headers != null) {
+				for (Map.Entry<Object, Object> entry : headers.entrySet()) {
+					httpGet.addHeader(entry.getKey() + "", entry.getValue() + "");
+				}
+			}
+			CloseableHttpResponse response = httpclient.execute(httpGet);
+			try {
+				HttpEntity entity1 = response.getEntity();
+				if (response.getStatusLine().getStatusCode() == 200) {
+					return EntityUtils.toString(entity1, charset);
+				} else {
+					EntityUtils.consume(entity1);
+					throw new RuntimeException("获得内容失败:" + response.getStatusLine());
+				}
+			} finally {
+				response.close();
 			}
 		} finally {
-			response.close();
+			httpclient.close();
 		}
 	}
 
