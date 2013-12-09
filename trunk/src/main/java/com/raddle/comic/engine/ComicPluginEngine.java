@@ -7,6 +7,8 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 import org.apache.commons.io.FileUtils;
@@ -55,6 +57,9 @@ public class ComicPluginEngine {
 			}
 			if (channelObj.get("desc", topScope) != null && channelObj.get("desc", topScope) != Scriptable.NOT_FOUND) {
 				channelInfo.setDesc((String) channelObj.get("desc", topScope));
+			}
+			if (channelObj.get("index", topScope) != null && channelObj.get("index", topScope) != Scriptable.NOT_FOUND) {
+				channelInfo.setIndex(((Number) channelObj.get("index", topScope)).intValue());
 			}
 		}
 		if (channelInfo.getName() != null) {
@@ -142,6 +147,20 @@ public class ComicPluginEngine {
 						channelInfo.setScriptFile(file);
 						list.add(channelInfo);
 					}
+					Collections.sort(list, new Comparator<ChannelInfo>() {
+
+						@Override
+						public int compare(ChannelInfo o1, ChannelInfo o2) {
+							if (o1.getIndex() == null) {
+								return 1;
+							}
+							if (o2.getIndex() == null) {
+								return -1;
+							}
+							return o1.getIndex().compareTo(o2.getIndex());
+						}
+
+					});
 				} catch (Exception e) {
 					logger.log(e.getMessage(), e);
 				} finally {

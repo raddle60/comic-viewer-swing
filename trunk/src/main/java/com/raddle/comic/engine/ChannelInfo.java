@@ -7,6 +7,7 @@ public class ChannelInfo {
 	private String home;
 	private String desc;
 	private File scriptFile;
+	private Integer index;
 
 	public String getName() {
 		return name;
@@ -43,5 +44,13 @@ public class ChannelInfo {
 	@Override
 	public String toString() {
 		return name;
+	}
+
+	public Integer getIndex() {
+		return index;
+	}
+
+	public void setIndex(Integer index) {
+		this.index = index;
 	}
 }
