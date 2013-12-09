@@ -5,6 +5,8 @@ package com.raddle.comic.swing;
 
 import javax.swing.JMenuItem;
 
+import org.apache.commons.lang.StringUtils;
+
 import com.raddle.comic.RecentViewInfo;
 
 /**
@@ -16,7 +18,8 @@ public class RecentViewMenuItem extends JMenuItem {
 	private RecentViewInfo viewInfo;
 
 	public RecentViewMenuItem(RecentViewInfo viewInfo) {
-		super(viewInfo.getComicId() + " - " + viewInfo.getSectionId() + " - " + viewInfo.getPageNo() + "/" + viewInfo.getMaxPageNo());
+		super(viewInfo.getComicId() + " - " + StringUtils.defaultIfBlank(viewInfo.getComicName(), viewInfo.getSectionId()) + " - "
+				+ viewInfo.getPageNo() + "/" + viewInfo.getMaxPageNo());
 		this.viewInfo = viewInfo;
 	}
 

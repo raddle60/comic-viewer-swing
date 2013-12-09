@@ -44,6 +44,7 @@ import com.raddle.comic.LogWrapper;
 import com.raddle.comic.RecentViewHelper;
 import com.raddle.comic.RecentViewInfo;
 import com.raddle.comic.engine.ChannelInfo;
+import com.raddle.comic.engine.ComicInfo;
 import com.raddle.comic.engine.ComicPluginEngine;
 import com.raddle.comic.engine.PageInfo;
 import com.raddle.comic.engine.SectionInfo;
@@ -66,6 +67,7 @@ public class ComicViewer {
 	private Map<Integer, PageInfo> pageMap = new HashMap<Integer, PageInfo>();
 	private List<SectionInfo> sectionList;
 	private String comicId;
+	private String comicName;
 	private String sectionId;
 	private ChannelInfo channelInfo;
 	private Integer pageNo;
@@ -388,7 +390,7 @@ public class ComicViewer {
 								movePic(0, 0);
 								picPane.repaint();
 								try {
-									RecentViewHelper.updateRecentView(channelInfo, comicId, sectionId, pageNo, pageMap.size());
+									RecentViewHelper.updateRecentView(channelInfo, comicId, comicName, sectionId, pageNo, pageMap.size());
 								} catch (Exception e) {
 									logger.log(e.getMessage(), e);
 								}
@@ -425,7 +427,8 @@ public class ComicViewer {
 				} else {
 					if (sectionList == null || sectionList.size() == 0) {
 						try {
-							sectionList = picEngine.getSections(comicId);
+							ComicInfo comicInfo = picEngine.getSections(comicId);
+							sectionList = comicInfo.getSections();
 						} catch (Exception e1) {
 							logger.log(e1.getMessage(), e1);
 							JOptionPane.showMessageDialog(null, "获取章节信息失败 , " + e1.getMessage());
@@ -533,6 +536,7 @@ public class ComicViewer {
 				pageMap.put(pageInfo.getPageNo(), pageInfo);
 			}
 			comicId = openComicDialog.getComicId();
+			comicName = openComicDialog.getComicId();
 			sectionId = openComicDialog.getSectionId();
 			pageNo = openComicDialog.getPageNo();
 			channelInfo = openComicDialog.getChannelInfo();

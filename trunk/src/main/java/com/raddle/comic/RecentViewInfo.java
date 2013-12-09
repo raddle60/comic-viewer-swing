@@ -4,6 +4,7 @@ public class RecentViewInfo {
 	private String channelName;
 	private String channelPath;
 	private String comicId;
+	private String comicName;
 	private String sectionId;
 	private Integer pageNo;
 	private Integer maxPageNo;
@@ -63,5 +64,13 @@ public class RecentViewInfo {
 
 	public void setMaxPageNo(Integer maxPageNo) {
 		this.maxPageNo = maxPageNo;
+	}
+
+	public String getComicName() {
+		return comicName;
+	}
+
+	public void setComicName(String comicName) {
+		this.comicName = comicName;
 	}
 }
