@@ -70,7 +70,7 @@ public class ComicPluginEngine {
 	public List<SectionInfo> getSections(String comicId) {
 		List<SectionInfo> sectionInfos = new ArrayList<SectionInfo>();
 		Function getSections = (Function) topScope.get("getSections", topScope);
-		Object result = getSections.call(context, topScope, Context.getCurrentContext().initStandardObjects(), new Object[] { comicId });
+		Object result = getSections.call(context, topScope, context.newObject(topScope), new Object[] { comicId });
 		if (result instanceof NativeArray) {
 			NativeArray array = (NativeArray) result;
 			for (Object object : array) {
@@ -97,7 +97,7 @@ public class ComicPluginEngine {
 	public List<PageInfo> getPages(String comicId, String sectionId) {
 		List<PageInfo> pageInfos = new ArrayList<PageInfo>();
 		Function getPages = (Function) topScope.get("getPages", topScope);
-		Object result = getPages.call(context, topScope, Context.getCurrentContext().initStandardObjects(), new Object[] { comicId, sectionId });
+		Object result = getPages.call(context, topScope, context.newObject(topScope), new Object[] { comicId, sectionId });
 		if (result instanceof NativeArray) {
 			NativeArray array = (NativeArray) result;
 			for (Object object : array) {
@@ -123,7 +123,7 @@ public class ComicPluginEngine {
 
 	public void loadRemoteImage(String comicId, String sectionId, String imageUrl) {
 		Function loadRemoteImage = (Function) topScope.get("loadRemoteImage", topScope);
-		loadRemoteImage.call(context, topScope, Context.getCurrentContext().initStandardObjects(), new Object[] { comicId, sectionId, imageUrl });
+		loadRemoteImage.call(context, topScope, context.newObject(topScope), new Object[] { comicId, sectionId, imageUrl });
 	}
 
 	public static List<ChannelInfo> getChannelList(File pluginDir) {
@@ -157,8 +157,12 @@ public class ComicPluginEngine {
 	}
 
 	public Scriptable eval(Scriptable scope, String script) {
-		context.evaluateString(scope, script, "<eval>", 1, null);
-		return scope;
+		ScriptableObject newObject = (ScriptableObject) context.newObject(scope);
+		newObject.setPrototype(scope);
+		newObject.setParentScope(null);
+		Context.getCurrentContext().initStandardObjects(newObject);
+		context.evaluateString(newObject, script, "<eval>", 1, null);
+		return newObject;
 	}
 
 }
