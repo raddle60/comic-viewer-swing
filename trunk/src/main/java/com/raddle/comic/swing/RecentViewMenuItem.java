@@ -18,7 +18,7 @@ public class RecentViewMenuItem extends JMenuItem {
 	private RecentViewInfo viewInfo;
 
 	public RecentViewMenuItem(RecentViewInfo viewInfo) {
-		super(viewInfo.getComicId() + " - " + StringUtils.defaultIfBlank(viewInfo.getComicName(), viewInfo.getSectionId()) + " - "
+		super(StringUtils.defaultIfBlank(viewInfo.getComicName(), viewInfo.getSectionId()) + " - " + viewInfo.getSectionId() + " - "
 				+ viewInfo.getPageNo() + "/" + viewInfo.getMaxPageNo());
 		this.viewInfo = viewInfo;
 	}
