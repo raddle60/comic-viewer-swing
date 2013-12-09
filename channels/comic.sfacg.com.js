@@ -20,7 +20,7 @@ function getSections(comicId) {
 	var sections = [];
 	if(matched != null && matched.length > 0){
 		for ( var i = 0; i < matched.length; i++) {
-			var sectionId = matched[i].match(new RegExp("/" + comicId + "/(\\w+)/"))[1];
+			var sectionId = matched[i].match(new RegExp("/" + comicId + "/([^/]+)/"))[1];
 			var sectionName = matched[i].match(/>([^<>]+)</)[1];
 			sections.push({
 				sectionId : sectionId,
@@ -32,7 +32,7 @@ function getSections(comicId) {
 	var extMatched = content.match(extSectionRegex);
 	if(extMatched != null && extMatched.length > 0){
 		for ( var i = 0; i < extMatched.length; i++) {
-			var sectionId = extMatched[i].match(new RegExp("/" + comicId + "/(\\w+/\\w+)/"))[1];
+			var sectionId = extMatched[i].match(new RegExp("/" + comicId + "/([^/]+/[^/]+)/"))[1];
 			var sectionName = extMatched[i].match(/>([^<>]+)</)[1];
 			sections.push({
 				sectionId : sectionId,
@@ -50,7 +50,7 @@ function getSections(comicId) {
  */
 function getPages(comicId, sectionId) {
 	var content = httpclient.getRemotePage("http://comic.sfacg.com/HTML/" + comicId + "/" + sectionId + "/", "utf-8", {});
-	var jsUrl = content.match(/\/Utility\/\w+\/(\w+\/)?\w+.js/);
+	var jsUrl = content.match(new RegExp("/Utility/[^/]+/([^/]+/)?[^/]+.js"));
 	if(jsUrl != null && jsUrl.length > 0){
 		var contentjs = httpclient.getRemotePage("http://comic.sfacg.com/" +jsUrl[0] , "utf-8", {});
 		var evalResult = engine.eval({}, contentjs);
