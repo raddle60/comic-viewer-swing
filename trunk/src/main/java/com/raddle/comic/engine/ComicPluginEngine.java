@@ -156,10 +156,9 @@ public class ComicPluginEngine {
 		Context.exit();
 	}
 
-	public Scriptable eval(String script) {
-		ScriptableObject scriptableObject = Context.getCurrentContext().initStandardObjects();
-		context.evaluateString(scriptableObject, script, "<eval>", 1, null);
-		return scriptableObject;
+	public Scriptable eval(Scriptable scope, String script) {
+		context.evaluateString(scope, script, "<eval>", 1, null);
+		return scope;
 	}
 
 }
