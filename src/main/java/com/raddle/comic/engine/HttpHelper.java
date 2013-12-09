@@ -49,7 +49,7 @@ public class HttpHelper {
 		}
 	}
 
-	public static void saveRemoteImage(String channel, String comicId, String sectionId, String imageUrl, Map<Object, Object> headers)
+	public static void saveRemoteImage(String channel, String comicId, String sectionId, String imageUrl, String cacheFileName, Map<Object, Object> headers)
 			throws IOException {
 		File cacheFile = new File(System.getProperty("user.home") + "/.comic-view/cache/img/" + channel + "/" + comicId + "/" + sectionId + "/"
 				+ FilenameUtils.getName(imageUrl));
