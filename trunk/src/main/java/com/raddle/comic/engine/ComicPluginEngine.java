@@ -70,7 +70,7 @@ public class ComicPluginEngine {
 	public List<SectionInfo> getSections(String comicId) {
 		List<SectionInfo> sectionInfos = new ArrayList<SectionInfo>();
 		Function getSections = (Function) topScope.get("getSections", topScope);
-		Object result = getSections.call(context, topScope, topScope, new Object[] { comicId });
+		Object result = getSections.call(context, topScope, Context.getCurrentContext().initStandardObjects(), new Object[] { comicId });
 		if (result instanceof NativeArray) {
 			NativeArray array = (NativeArray) result;
 			for (Object object : array) {
@@ -97,7 +97,7 @@ public class ComicPluginEngine {
 	public List<PageInfo> getPages(String comicId, String sectionId) {
 		List<PageInfo> pageInfos = new ArrayList<PageInfo>();
 		Function getPages = (Function) topScope.get("getPages", topScope);
-		Object result = getPages.call(context, topScope, topScope, new Object[] { comicId, sectionId });
+		Object result = getPages.call(context, topScope, Context.getCurrentContext().initStandardObjects(), new Object[] { comicId, sectionId });
 		if (result instanceof NativeArray) {
 			NativeArray array = (NativeArray) result;
 			for (Object object : array) {
@@ -123,7 +123,7 @@ public class ComicPluginEngine {
 
 	public void loadRemoteImage(String comicId, String sectionId, String imageUrl) {
 		Function loadRemoteImage = (Function) topScope.get("loadRemoteImage", topScope);
-		loadRemoteImage.call(context, topScope, topScope, new Object[] { comicId, sectionId, imageUrl });
+		loadRemoteImage.call(context, topScope, Context.getCurrentContext().initStandardObjects(), new Object[] { comicId, sectionId, imageUrl });
 	}
 
 	public static List<ChannelInfo> getChannelList(File pluginDir) {
@@ -156,8 +156,10 @@ public class ComicPluginEngine {
 		Context.exit();
 	}
 
-	public void eval(String script) {
-		context.evaluateString(topScope, script, "<inner>", 1, null);
+	public Scriptable eval(String script) {
+		ScriptableObject scriptableObject = Context.getCurrentContext().initStandardObjects();
+		context.evaluateString(scriptableObject, script, "<eval>", 1, null);
+		return scriptableObject;
 	}
 
 }
