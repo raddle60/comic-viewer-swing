@@ -53,7 +53,7 @@ function getPages(comicId, sectionId) {
 	var jsUrl = content.match(/\/Utility\/\w+\/(\w+\/)?\w+.js/);
 	if(jsUrl != null && jsUrl.length > 0){
 		var contentjs = httpclient.getRemotePage("http://comic.sfacg.com/" +jsUrl[0] , "utf-8", {});
-		var evalResult = engine.eval(contentjs);
+		var evalResult = engine.eval({}, contentjs);
 		var pages = [];
 		for ( var i = 0; i < evalResult.picAy.length; i++) {
 			pages[i] = {
