@@ -82,6 +82,6 @@ function getPages(comicId, sectionId) {
  * @param sectionId
  * @param imageUrl
  */
-function loadRemoteImage(comicId, sectionId, imageUrl) {
+function loadRemoteImage(comicId, sectionId, pageNo, imageUrl) {
 	httpclient.saveRemoteImage(channel.name,comicId,sectionId,imageUrl,{});
 }

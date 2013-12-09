@@ -489,7 +489,7 @@ public class ComicViewer {
 				if (!cacheFile.getParentFile().exists()) {
 					cacheFile.getParentFile().mkdirs();
 				}
-				picEngine.loadRemoteImage(comicId, sectionId, pageInfo.getPageUrl());
+				picEngine.loadRemoteImage(comicId, sectionId, pageNo, pageInfo.getPageUrl());
 				if (cacheFile.exists()) {
 					img = ImageIO.read(cacheFile);
 				}
