@@ -28,15 +28,17 @@ import com.raddle.comic.LogWrapper;
  */
 public class ComicPluginEngine {
 	private static LogWrapper logger = new LogWrapper(LoggerFactory.getLogger(ComicPluginEngine.class));
-	private Context context;
 	private Scriptable topScope;
 	private File pluginFile;
 
 	public void init(File pluginFile) throws IOException {
-		if (context != null) {
+		if (topScope != null) {
 			throw new IllegalStateException("ComicPluginEngine was initialized ");
 		}
-		context = Context.enter();
+		Context context = Context.getCurrentContext();
+		if (context == null) {
+			context = Context.enter();
+		}
 		topScope = context.initStandardObjects();
 		ScriptableObject.putProperty(topScope, "log", LoggerFactory.getLogger("ChannelJs"));
 		ScriptableObject.putProperty(topScope, "httpclient", new HttpHelper());
@@ -73,7 +75,8 @@ public class ComicPluginEngine {
 	public ComicInfo getSections(String comicId) {
 		ComicInfo comicInfo = new ComicInfo();
 		Function getSections = (Function) topScope.get("getSections", topScope);
-		NativeObject result = (NativeObject) getSections.call(context, topScope, context.newObject(topScope), new Object[] { comicId });
+		NativeObject result = (NativeObject) getSections.call(Context.getCurrentContext(), topScope, Context.getCurrentContext().newObject(topScope),
+				new Object[] { comicId });
 		if (result == null) {
 			logger.log("getSections can't find section comicId[{}]", comicId);
 			return null;
@@ -105,7 +108,8 @@ public class ComicPluginEngine {
 	public List<PageInfo> getPages(String comicId, String sectionId) {
 		List<PageInfo> pageInfos = new ArrayList<PageInfo>();
 		Function getPages = (Function) topScope.get("getPages", topScope);
-		Object result = getPages.call(context, topScope, context.newObject(topScope), new Object[] { comicId, sectionId });
+		Object result = getPages.call(Context.getCurrentContext(), topScope, Context.getCurrentContext().newObject(topScope), new Object[] { comicId,
+				sectionId });
 		if (result instanceof NativeArray) {
 			NativeArray array = (NativeArray) result;
 			for (Object object : array) {
@@ -130,8 +134,17 @@ public class ComicPluginEngine {
 	}
 
 	public void loadRemoteImage(String comicId, String sectionId, Integer pageNo, String imageUrl) {
-		Function loadRemoteImage = (Function) topScope.get("loadRemoteImage", topScope);
-		loadRemoteImage.call(context, topScope, context.newObject(topScope), new Object[] { comicId, sectionId, pageNo, imageUrl });
+		if (Context.getCurrentContext() == null) {
+			// 说明起了多线程
+			Context.enter();
+		}
+		try {
+			Function loadRemoteImage = (Function) topScope.get("loadRemoteImage", topScope);
+			loadRemoteImage.call(Context.getCurrentContext(), topScope, Context.getCurrentContext().newObject(topScope), new Object[] { comicId,
+					sectionId, pageNo, imageUrl });
+		} finally {
+			Context.exit();
+		}
 	}
 
 	public static List<ChannelInfo> getChannelList(File pluginDir) {
@@ -174,15 +187,17 @@ public class ComicPluginEngine {
 	}
 
 	public void close() {
-		Context.exit();
+		if (Context.getCurrentContext() != null) {
+			Context.exit();
+		}
 	}
 
 	public Scriptable eval(Scriptable scope, String script) {
-		ScriptableObject newObject = (ScriptableObject) context.newObject(scope);
+		ScriptableObject newObject = (ScriptableObject) Context.getCurrentContext().newObject(scope);
 		newObject.setPrototype(scope);
 		newObject.setParentScope(null);
 		Context.getCurrentContext().initStandardObjects(newObject);
-		context.evaluateString(newObject, script, "<eval>", 1, null);
+		Context.getCurrentContext().evaluateString(newObject, script, "<eval>", 1, null);
 		return newObject;
 	}
 
