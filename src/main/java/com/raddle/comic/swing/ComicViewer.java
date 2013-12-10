@@ -474,9 +474,8 @@ public class ComicViewer {
 							} else {
 								if (isFullScreen) {
 									exitFullScreen();
-								} else {
-									JOptionPane.showMessageDialog(null, isNextPage ? "已是最后一章" : "已是第一章");
 								}
+								JOptionPane.showMessageDialog(null, isNextPage ? "已是最后一章" : "已是第一章");
 							}
 							return;
 						}
