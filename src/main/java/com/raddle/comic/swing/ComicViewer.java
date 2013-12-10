@@ -84,7 +84,8 @@ public class ComicViewer {
 	 */
 	public static void main(String[] args) {
 		EventQueue.invokeLater(new Runnable() {
-			public void run() {
+			@Override
+            public void run() {
 				try {
 					final ComicViewer window = new ComicViewer();
 					window.frame.setVisible(true);
@@ -119,7 +120,8 @@ public class ComicViewer {
 
 		JMenuItem menuItem = new JMenuItem("打开");
 		menuItem.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
+			@Override
+            public void actionPerformed(ActionEvent e) {
 				openComicDialog.setModal(true);
 				openComicDialog.setVisible(true);
 				openComic();
@@ -129,13 +131,16 @@ public class ComicViewer {
 
 		recentViewmenu = new JMenu("最近打开");
 		recentViewmenu.addMenuListener(new MenuListener() {
-			public void menuCanceled(MenuEvent e) {
+			@Override
+            public void menuCanceled(MenuEvent e) {
 			}
 
-			public void menuDeselected(MenuEvent e) {
+			@Override
+            public void menuDeselected(MenuEvent e) {
 			}
 
-			public void menuSelected(MenuEvent e) {
+			@Override
+            public void menuSelected(MenuEvent e) {
 				if (recentViewmenu.getComponentCount() > 0) {
 					RecentViewMenuItem component = (RecentViewMenuItem) recentViewmenu.getComponent(0);
 					List<RecentViewInfo> recentViews = RecentViewHelper.getRecentViews();
@@ -145,7 +150,8 @@ public class ComicViewer {
 							for (RecentViewInfo recentViewInfo : recentViews) {
 								final RecentViewMenuItem recentItem = new RecentViewMenuItem(recentViewInfo);
 								recentItem.addActionListener(new ActionListener() {
-									public void actionPerformed(ActionEvent e) {
+									@Override
+                                    public void actionPerformed(ActionEvent e) {
 										openComicDialog.initRecentView(recentItem.getViewInfo());
 										openComicDialog.setModal(true);
 										openComicDialog.setVisible(true);
@@ -162,7 +168,8 @@ public class ComicViewer {
 					for (RecentViewInfo recentViewInfo : recentViews) {
 						final RecentViewMenuItem recentItem = new RecentViewMenuItem(recentViewInfo);
 						recentItem.addActionListener(new ActionListener() {
-							public void actionPerformed(ActionEvent e) {
+							@Override
+                            public void actionPerformed(ActionEvent e) {
 								openComicDialog.initRecentView(recentItem.getViewInfo());
 								openComicDialog.setModal(true);
 								openComicDialog.setVisible(true);
@@ -178,7 +185,8 @@ public class ComicViewer {
 
 		mntmNewMenuItem = new JMenuItem("退出");
 		mntmNewMenuItem.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
+			@Override
+            public void actionPerformed(ActionEvent e) {
 				System.exit(1);
 			}
 		});
@@ -189,8 +197,9 @@ public class ComicViewer {
 
 		menuItem_1 = new JMenuItem("操作说明");
 		menuItem_1.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
-				JOptionPane.showMessageDialog(null, "上下箭头，空格，回车，鼠标点击和拖拽，移动图片\n左右箭头，PageUp和PageDown翻页\nCtrl+Enter全屏，Esc推出全屏");
+			@Override
+            public void actionPerformed(ActionEvent e) {
+				JOptionPane.showMessageDialog(null, "上下箭头，空格，回车，鼠标点击和拖拽，移动图片\n左右箭头，PageUp和PageDown翻页\nHome第一页End最后一页\nCtrl+Enter全屏，Esc推出全屏");
 			}
 		});
 		menu_1.add(menuItem_1);
@@ -210,6 +219,9 @@ public class ComicViewer {
 						g.setXORMode(Color.WHITE);
 						g.drawString(sectionId + " - " + pageNo + "/" + pageMap.size(), this.getWidth() - 80, this.getHeight() - 10);
 					}
+				} else {
+				    g.setColor(Color.BLACK);
+                    g.fillRect(0, 0, this.getWidth(), this.getHeight());
 				}
 			}
 
@@ -279,7 +291,8 @@ public class ComicViewer {
 			}
 		});
 		picPane.addMouseWheelListener(new MouseWheelListener() {
-			public void mouseWheelMoved(MouseWheelEvent e) {
+			@Override
+            public void mouseWheelMoved(MouseWheelEvent e) {
 				if (e.getWheelRotation() == 1) {
 					movePic(0, -50);
 				}
