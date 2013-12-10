@@ -49,7 +49,7 @@ function getSections(comicId) {
  * @param SectionId
  */
 function getPages(comicId, sectionId) {
-	var content = httpclient.getRemotePage("http://www.1kkk.com/" + "/" + sectionId + "/", "utf-8", {});
+	var content = httpclient.getRemotePage("http://www.1kkk.com/" + sectionId + "/", "utf-8", {});
 	var totalCount = content.match(new RegExp("总<span>(\\d+)</span>页"))[1];
 	var pages = [];
 	for ( var i = 0; i < totalCount; i++) {
@@ -68,8 +68,19 @@ function getPages(comicId, sectionId) {
  * @param imageUrl
  */
 function loadRemoteImage(comicId, sectionId, pageNo, imageUrl) {
-	var content = httpclient.getRemotePage("http://www.1kkk.com/" + "/" + sectionId + "/", "utf-8", {});
+	var content = httpclient.getRemotePage("http://www.1kkk.com/" + sectionId + "/", "utf-8", {});
+	var midMatched = content.match(new RegExp("var mid=[^<>]+imagecount;"));
+	var m5kkeyMatched = content.match(new RegExp("id=\"dm5_key\" value=\"([^\"]*)\""));
+	if(midMatched != null && m5kkeyMatched != null && m5kkeyMatched.length > 0){
+		var cidObj = engine.eval({}, midMatched);
+		var urlContent = httpclient.getRemotePage("http://www.1kkk.com/" + sectionId + "/chapterimagefun.ashx?cid=" + cidObj.cid + "&page="
+				+ pageNo + "&key=" + m5kkeyMatched[1] + "&maxcount=10", "utf-8", {});
+		log.info(urlContent.substring(5,urlContent.length()-1));
+		var result = engine.eval({}, urlContent.substring(5,urlContent.length()));
+		log.info(result);
+		//httpclient.saveRemoteImage(channel.name,comicId,sectionId,imageUrl,null,{});
+	}
 	// getimage() 通过ajax获取
 	//content.match(new RegExp("<a href=\"/manhua13672/\">\\s+<img src=\"http://mhfm2.tel.cdndm5.com/14/13672/13672_c.jpg\" />""))[1];
-	httpclient.saveRemoteImage(channel.name,comicId,sectionId,imageUrl,null,{});
+	
 }
