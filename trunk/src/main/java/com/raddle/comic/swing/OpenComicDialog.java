@@ -48,6 +48,7 @@ public class OpenComicDialog extends JDialog {
 	private JTextArea descTxt;
 	private JLabel lastSectionIdLeb;
 	private JLabel comicNameLeb;
+	private String sectionName;
 
 	/**
 	 * Launch the application.
@@ -79,7 +80,7 @@ public class OpenComicDialog extends JDialog {
 		channelBox = new JComboBox<ChannelInfo>();
 		channelBox.addItemListener(new ItemListener() {
 			@Override
-            public void itemStateChanged(ItemEvent e) {
+			public void itemStateChanged(ItemEvent e) {
 				if (e.getStateChange() == ItemEvent.SELECTED) {
 					if (channelBox.getSelectedItem() != null) {
 						ChannelInfo selectedItem = (ChannelInfo) channelBox.getSelectedItem();
@@ -132,7 +133,7 @@ public class OpenComicDialog extends JDialog {
 		JButton getBtn = new JButton("获取");
 		getBtn.addActionListener(new ActionListener() {
 			@Override
-            public void actionPerformed(ActionEvent e) {
+			public void actionPerformed(ActionEvent e) {
 				ChannelInfo selectedItem = (ChannelInfo) channelBox.getSelectedItem();
 				if (selectedItem != null) {
 					ComicPluginEngine pluginEngine = new ComicPluginEngine();
@@ -165,10 +166,11 @@ public class OpenComicDialog extends JDialog {
 							}
 						}
 						if (sections.size() > 0) {
-                            lastSectionIdLeb.setText("最后章节：" + sections.get(sections.size() - 1).getSectionId());
-                            if (StringUtils.isNotBlank(sections.get(sections.size() - 1).getName())) {
-                                lastSectionIdLeb.setText(lastSectionIdLeb.getText() + "(" + sections.get(sections.size() - 1).getName() + ")");
-                            }
+							lastSectionIdLeb.setText("最后章节：" + sections.get(sections.size() - 1).getSectionId());
+							if (StringUtils.isNotBlank(sections.get(sections.size() - 1).getName())) {
+								lastSectionIdLeb.setText(lastSectionIdLeb.getText() + "(" + sections.get(sections.size() - 1).getName() + ")");
+								sectionName = sections.get(sections.size() - 1).getName();
+							}
 						}
 						if (!matched) {
 							pageInfos = null;
@@ -216,7 +218,7 @@ public class OpenComicDialog extends JDialog {
 				JButton okButton = new JButton("OK");
 				okButton.addActionListener(new ActionListener() {
 					@Override
-                    public void actionPerformed(ActionEvent e) {
+					public void actionPerformed(ActionEvent e) {
 						if (pageNoBox.getSelectedItem() == null) {
 							JOptionPane.showMessageDialog(null, "没有页码信息");
 							return;
@@ -232,7 +234,7 @@ public class OpenComicDialog extends JDialog {
 				JButton cancelButton = new JButton("Cancel");
 				cancelButton.addActionListener(new ActionListener() {
 					@Override
-                    public void actionPerformed(ActionEvent e) {
+					public void actionPerformed(ActionEvent e) {
 						pageInfos = null;
 						OpenComicDialog.this.setVisible(false);
 					}
@@ -273,6 +275,10 @@ public class OpenComicDialog extends JDialog {
 				List<SectionInfo> sections = comicInfo.getSections();
 				if (sections != null && sections.size() > 0) {
 					lastSectionIdLeb.setText("最后章节：" + sections.get(sections.size() - 1).getSectionId());
+					if (StringUtils.isNotBlank(sections.get(sections.size() - 1).getName())) {
+						lastSectionIdLeb.setText(lastSectionIdLeb.getText() + "(" + sections.get(sections.size() - 1).getName() + ")");
+						sectionName = sections.get(sections.size() - 1).getName();
+					}
 				}
 			}
 			List<PageInfo> pages = pluginEngine.getPages(comicIdTxt.getText(), sectionIdTxt.getText());
@@ -312,6 +318,10 @@ public class OpenComicDialog extends JDialog {
 
 	public String getSectionId() {
 		return sectionIdTxt.getText();
+	}
+
+	public String getSectionName() {
+		return sectionName;
 	}
 
 	public Integer getPageNo() {
