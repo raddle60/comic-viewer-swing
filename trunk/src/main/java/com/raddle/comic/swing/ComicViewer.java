@@ -391,21 +391,23 @@ public class ComicViewer {
 							}
 							try {
 								image = loadImage(pageInfo);
-								picStartPoint = new Point();
-								if (isNextPage) {
-									// 下一页从右上角开始
-									picStartPoint.x = picPane.getWidth() - image.getWidth(null);
-								} else {
-									// 上一页从左下角开始
-									picStartPoint.y = picPane.getHeight() - image.getHeight(null);
-								}
-								movePic(0, 0);
-								picPane.repaint();
-								try {
-									RecentViewHelper
-											.updateRecentView(channelInfo, comicId, comicName, sectionId, sectionName, pageNo, pageMap.size());
-								} catch (Exception e) {
-									logger.log(e.getMessage(), e);
+								if (image != null) {
+									picStartPoint = new Point();
+									if (isNextPage) {
+										// 下一页从右上角开始
+										picStartPoint.x = picPane.getWidth() - image.getWidth(null);
+									} else {
+										// 上一页从左下角开始
+										picStartPoint.y = picPane.getHeight() - image.getHeight(null);
+									}
+									movePic(0, 0);
+									picPane.repaint();
+									try {
+										RecentViewHelper.updateRecentView(channelInfo, comicId, comicName, sectionId, sectionName, pageNo,
+												pageMap.size());
+									} catch (Exception e) {
+										logger.log(e.getMessage(), e);
+									}
 								}
 							} catch (Exception e) {
 								logger.log(e.getMessage(), e);
