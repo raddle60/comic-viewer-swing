@@ -6,6 +6,7 @@ public class RecentViewInfo {
 	private String comicId;
 	private String comicName;
 	private String sectionId;
+	private String sectionName;
 	private Integer pageNo;
 	private Integer maxPageNo;
 	private long time;
@@ -72,5 +73,13 @@ public class RecentViewInfo {
 
 	public void setComicName(String comicName) {
 		this.comicName = comicName;
+	}
+
+	public String getSectionName() {
+		return sectionName;
+	}
+
+	public void setSectionName(String sectionName) {
+		this.sectionName = sectionName;
 	}
 }
