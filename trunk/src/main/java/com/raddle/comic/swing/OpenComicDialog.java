@@ -190,6 +190,8 @@ public class OpenComicDialog extends JDialog {
 							pageNoBox.addItem(pageInfo);
 						}
 					} catch (Exception e1) {
+						pageInfos = null;
+						pageNoBox.removeAllItems();
 						logger.log(e1.getMessage(), e1);
 						JOptionPane.showMessageDialog(null, "获取页面信息失败," + e1.getMessage());
 					} finally {
