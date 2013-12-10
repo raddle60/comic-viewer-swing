@@ -11,6 +11,7 @@ import java.util.Map;
 
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang.StringUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -45,7 +46,7 @@ public class HttpHelper {
 				return EntityUtils.toString(entity1, charset);
 			} else {
 				EntityUtils.consume(entity1);
-				throw new RuntimeException("获得内容失败:" + response.getStatusLine());
+				throw new RuntimeException("获得内容失败:" + response.getStatusLine() + " , " + url);
 			}
 		} finally {
 			response.close();
@@ -55,7 +56,7 @@ public class HttpHelper {
 	public static void saveRemoteImage(String channel, String comicId, String sectionId, String imageUrl, String cacheFileName,
 			Map<Object, Object> headers) throws IOException {
 		File cacheFile = new File(System.getProperty("user.home") + "/.comic-view/cache/img/" + channel + "/" + comicId + "/" + sectionId + "/"
-				+ FilenameUtils.getName(imageUrl));
+				+ StringUtils.defaultIfBlank(cacheFileName, FilenameUtils.getName(imageUrl)));
 		saveRemotePage(imageUrl, headers, cacheFile);
 	}
 
@@ -77,7 +78,7 @@ public class HttpHelper {
 				EntityUtils.consume(entity1);
 			} else {
 				EntityUtils.consume(entity1);
-				throw new RuntimeException("获得内容失败:" + response.getStatusLine());
+				throw new RuntimeException("获得内容失败:" + response.getStatusLine() + " , " + url);
 			}
 		} finally {
 			response.close();
