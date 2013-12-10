@@ -200,7 +200,8 @@ public class ComicViewer {
 		menuItem_1.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				JOptionPane.showMessageDialog(null, "上下箭头，空格，回车，鼠标点击和拖拽，移动图片\n左右箭头，PageUp和PageDown翻页\nHome第一页End最后一页\nCtrl+Enter全屏，Esc推出全屏");
+				JOptionPane.showMessageDialog(null, "上下箭头，空格，回车，左键和右键点击自动滚屏。鼠标拖拽，移动图片\n" + "左右箭头，PageUp和PageDown翻页\n" + "Home第一页End最后一页\n"
+						+ "Ctrl+Enter全屏，Esc推出全屏");
 			}
 		});
 		menu_1.add(menuItem_1);
@@ -242,18 +243,10 @@ public class ComicViewer {
 					moveViewDown();
 				}
 				if (e.getKeyCode() == KeyEvent.VK_UP) {
-					if (picStartPoint.y < 0) {
-						// 没有到最上面,往上翻3/4个高度
-						movePic(0, (int) (picPane.getHeight() * 0.9));
-						picPane.repaint();
-					} else if (image.getWidth(null) + picStartPoint.x > picPane.getWidth()) {
-						// 到最上面，没在最右边，往右翻3/4个宽度,移动到右上
-						movePic(0 - (int) (picPane.getWidth() * 0.9), 0 - image.getHeight(null));
-						picPane.repaint();
-					} else {
-						// 本页看完了，上一页
-						changePage(false);
-					}
+					moveViewUp();
+				}
+				if (e.getKeyCode() == KeyEvent.VK_F5) {
+					showImage(true);
 				}
 				if (e.getKeyCode() == KeyEvent.VK_HOME) {
 					pageNo = 1;
@@ -329,7 +322,11 @@ public class ComicViewer {
 
 			@Override
 			public void mouseClicked(MouseEvent e) {
-				moveViewDown();
+				if (e.getButton() == MouseEvent.BUTTON1) {
+					moveViewDown();
+				} else if (e.getButton() == MouseEvent.BUTTON2 || e.getButton() == MouseEvent.BUTTON3) {
+					moveViewUp();
+				}
 			}
 		});
 		//
@@ -573,6 +570,23 @@ public class ComicViewer {
 			// 创建新的frame
 			createFrame();
 			frame.setVisible(true);
+		}
+	}
+
+	private void moveViewUp() {
+		if (image != null) {
+			if (picStartPoint.y < 0) {
+				// 没有到最上面,往上翻3/4个高度
+				movePic(0, (int) (picPane.getHeight() * 0.9));
+				picPane.repaint();
+			} else if (image.getWidth(null) + picStartPoint.x > picPane.getWidth()) {
+				// 到最上面，没在最右边，往右翻3/4个宽度,移动到右上
+				movePic(0 - (int) (picPane.getWidth() * 0.9), 0 - image.getHeight(null));
+				picPane.repaint();
+			} else {
+				// 本页看完了，上一页
+				changePage(false);
+			}
 		}
 	}
 }
