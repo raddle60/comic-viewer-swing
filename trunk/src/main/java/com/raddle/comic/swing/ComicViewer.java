@@ -408,8 +408,9 @@ public class ComicViewer {
 									logger.log(e.getMessage(), e);
 								}
 							} catch (Exception e) {
-								image = null;
 								logger.log(e.getMessage(), e);
+								image = null;
+								picPane.repaint();
 								JOptionPane.showMessageDialog(null, "加载图片失败," + e.getMessage());
 								return;
 							}
