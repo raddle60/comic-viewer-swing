@@ -55,7 +55,7 @@ function getPages(comicId, sectionId) {
 	for ( var i = 0; i < totalCount; i++) {
 		pages[i] = {
 			pageNo : i + 1,
-			pageUrl : "http://www.1kkk.com/" + i + ".jpg" //后面会重新获取，这里只需要http开头和文件名
+			pageUrl : "http://www.1kkk.com/" + (i+1) + ".jpg" //后面会重新获取，这里只需要http开头和文件名
 		}
 	}
 	return pages;
@@ -75,10 +75,9 @@ function loadRemoteImage(comicId, sectionId, pageNo, imageUrl) {
 		var cidObj = engine.eval({}, midMatched);
 		var urlContent = httpclient.getRemotePage("http://www.1kkk.com/" + sectionId + "/chapterimagefun.ashx?cid=" + cidObj.cid + "&page="
 				+ pageNo + "&key=" + m5kkeyMatched[1] + "&maxcount=10", "utf-8", {});
-		log.info(urlContent.substring(5,urlContent.length()-1));
-		var result = engine.eval({}, urlContent.substring(5,urlContent.length()));
-		log.info(result);
-		//httpclient.saveRemoteImage(channel.name,comicId,sectionId,imageUrl,null,{});
+		var eval1 = engine.eval({}, "var eval1 = " + urlContent.substring(5,urlContent.length()-2));
+		var result = engine.eval({}, eval1.eval1);
+		httpclient.saveRemoteImage(channel.name,comicId,sectionId,result.d[0],pageNo+".jpg",{});
 	}
 	// getimage() 通过ajax获取
 	//content.match(new RegExp("<a href=\"/manhua13672/\">\\s+<img src=\"http://mhfm2.tel.cdndm5.com/14/13672/13672_c.jpg\" />""))[1];
