@@ -405,7 +405,8 @@ public class ComicViewer {
 								movePic(0, 0);
 								picPane.repaint();
 								try {
-									RecentViewHelper.updateRecentView(channelInfo, comicId, comicName, sectionId, pageNo, pageMap.size());
+									RecentViewHelper
+											.updateRecentView(channelInfo, comicId, comicName, sectionId, sectionName, pageNo, pageMap.size());
 								} catch (Exception e) {
 									logger.log(e.getMessage(), e);
 								}
