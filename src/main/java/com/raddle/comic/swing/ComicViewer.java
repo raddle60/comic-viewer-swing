@@ -472,7 +472,11 @@ public class ComicViewer {
 									JOptionPane.showMessageDialog(null, "获取页面信息失败 , " + e1.getMessage());
 								}
 							} else {
-								JOptionPane.showMessageDialog(null, isNextPage ? "已是最后一章" : "已是第一章");
+								if (isFullScreen) {
+									exitFullScreen();
+								} else {
+									JOptionPane.showMessageDialog(null, isNextPage ? "已是最后一章" : "已是第一章");
+								}
 							}
 							return;
 						}
