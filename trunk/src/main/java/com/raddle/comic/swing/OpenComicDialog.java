@@ -168,7 +168,7 @@ public class OpenComicDialog extends JDialog {
 						if (sections.size() > 0) {
 							lastSectionIdLeb.setText("最后章节：" + sections.get(sections.size() - 1).getSectionId());
 							if (StringUtils.isNotBlank(sections.get(sections.size() - 1).getName())) {
-								lastSectionIdLeb.setText(lastSectionIdLeb.getText() + "(" + sections.get(sections.size() - 1).getName() + ")");
+								lastSectionIdLeb.setText(lastSectionIdLeb.getText() + "(名称：" + sections.get(sections.size() - 1).getName() + ")");
 								sectionName = sections.get(sections.size() - 1).getName();
 							}
 						}
@@ -276,7 +276,7 @@ public class OpenComicDialog extends JDialog {
 				if (sections != null && sections.size() > 0) {
 					lastSectionIdLeb.setText("最后章节：" + sections.get(sections.size() - 1).getSectionId());
 					if (StringUtils.isNotBlank(sections.get(sections.size() - 1).getName())) {
-						lastSectionIdLeb.setText(lastSectionIdLeb.getText() + "(" + sections.get(sections.size() - 1).getName() + ")");
+						lastSectionIdLeb.setText(lastSectionIdLeb.getText() + "(名称：" + sections.get(sections.size() - 1).getName() + ")");
 						sectionName = sections.get(sections.size() - 1).getName();
 					}
 				}
