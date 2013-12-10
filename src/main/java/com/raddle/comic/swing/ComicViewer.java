@@ -511,6 +511,8 @@ public class ComicViewer {
 				picEngine.loadRemoteImage(comicId, sectionId, pageNo, pageInfo.getPageUrl());
 				if (cacheFile.exists()) {
 					img = ImageIO.read(cacheFile);
+				} else {
+					JOptionPane.showMessageDialog(null, "加载图片失败");
 				}
 			}
 		}
