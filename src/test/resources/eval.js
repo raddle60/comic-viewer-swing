@@ -1,0 +1,4 @@
+var a = function(p,a,c,k,e,d){e=function(c){return(c<a?"":e(parseInt(c/a)))+((c=c%a)>35?String.fromCharCode(c+29):c.toString(36))};if(!''.replace(/^/,String)){while(c--)d[e(c)]=k[c]||e(c);k=[function(e){return d[e]}];e=function(){return'\\w+'};c=1;};while(c--)if(k[c])p=p.replace(new RegExp('\\b'+e(c)+'\\b','g'),k[c]);return p;}('g 7(){1 5=3;1 4="9";1 6="h://j.l-k-a-b.f.e/8/c/3";1 2=["/q.r","/s.n"];m(1 i=0;i<2.p;i++){2[i]=6+2[i]+\'?5=3&4=9\'}o 2}1 d;d=7();',29,29,'|var|pvaluetttt|148306|key|cid|pix|dm5imagefun||29c8bc46a84318e8ff1fc9cd14d2ba68|113|112|7331||com|cdndm5|function|http||manhua1023|147|61|for|png|return|length|1_5237|jpg|2_3469'.split('|'),0,{});
+out.println(a+"");
+eval(a+";var bb=5;");
+out.println(d[0]+"");
