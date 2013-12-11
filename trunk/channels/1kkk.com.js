@@ -81,8 +81,7 @@ function loadRemoteImage(comicId, sectionId, pageNo, imageUrl) {
 		var cidObj = engine.eval({}, midMatched);
 		var urlContent = httpclient.getRemotePage("http://www.1kkk.com/" + sectionId + "/chapterimagefun.ashx?cid=" + cidObj.cid + "&page="
 				+ pageNo + "&key=" + m5kkeyMatched[1] + "&maxcount=10", "utf-8", {});
-		var eval1 = engine.eval({}, "var eval1 = " + urlContent.substring(5,urlContent.length()-2));
-		var result = engine.eval({}, eval1.eval1);
-		httpclient.saveRemoteImage(channel.name,comicId,sectionId,result.d[0],pageNo+".jpg",{});
+		eval("eval(" + urlContent + ");");
+		httpclient.saveRemoteImage(channel.name,comicId,sectionId,d[0],pageNo+".jpg",{});
 	}
 }
