@@ -63,8 +63,9 @@ public class RecentViewHelper {
 				if (channelInfo.getScriptFile().getName().equals(FilenameUtils.getName(view.getProperty("channel.path") + ""))
 						&& comicId.equals(view.getProperty("comicId"))) {
 					view.setProperty("pageNo", pageNo);
-					view.setProperty("comicName", comicName);// 以前没有，补齐已生成的
-					view.setProperty("sectionName", sectionName);// 以前没有，补齐已生成的
+					view.setProperty("maxPageNo", maxPageNo);
+					view.setProperty("comicName", comicName);
+					view.setProperty("sectionName", sectionName);
 					view.setProperty("sectionId", sectionId);
 					view.setProperty("time", System.currentTimeMillis());
 					save();
