@@ -580,6 +580,9 @@ public class ComicViewer {
 			frame.dispose();
 			// 创建新的frame
 			createFrame();
+			if (image != null) {
+				frame.setTitle(getBasicTitle());
+			}
 			frame.setVisible(true);
 		}
 	}
