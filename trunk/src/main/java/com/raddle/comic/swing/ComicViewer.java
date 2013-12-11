@@ -200,8 +200,8 @@ public class ComicViewer {
 		menuItem_1.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				JOptionPane.showMessageDialog(null, "上下箭头，空格，回车，左键和右键点击自动滚屏。鼠标拖拽，移动图片\n" + "左右箭头，PageUp和PageDown翻页\n" + "Home第一页End最后一页\n"
-						+ "Ctrl+Enter全屏，Esc推出全屏");
+				JOptionPane.showMessageDialog(null, "上下箭头，空格，回车，左键和右键点击自动滚屏。鼠标拖拽，移动图片\n" + "Ctrl+上下左右箭头移动图片\n" + "左右箭头，PageUp和PageDown翻页\n"
+						+ "Home第一页End最后一页\n" + "Ctrl+Enter全屏，Esc推出全屏");
 			}
 		});
 		menu_1.add(menuItem_1);
@@ -232,39 +232,43 @@ public class ComicViewer {
 		frame.addKeyListener(new KeyAdapter() {
 			@Override
 			public void keyPressed(KeyEvent e) {
-				if (e.getKeyCode() == KeyEvent.VK_PAGE_DOWN || e.getKeyCode() == KeyEvent.VK_RIGHT) {
+				int interval = 30;
+				if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_UP) {
+					movePic(0, interval);
+					picPane.repaint();
+				} else if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_DOWN) {
+					movePic(0, 0 - interval);
+					picPane.repaint();
+				} else if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_LEFT) {
+					movePic(interval, 0);
+					picPane.repaint();
+				} else if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_RIGHT) {
+					movePic(0 - interval, 0);
+					picPane.repaint();
+				} else if (e.getKeyCode() == KeyEvent.VK_PAGE_DOWN || e.getKeyCode() == KeyEvent.VK_RIGHT) {
 					changePage(true);
-				}
-				if (e.getKeyCode() == KeyEvent.VK_PAGE_UP || e.getKeyCode() == KeyEvent.VK_LEFT) {
+				} else if (e.getKeyCode() == KeyEvent.VK_PAGE_UP || e.getKeyCode() == KeyEvent.VK_LEFT) {
 					changePage(false);
-				}
-				if (e.getKeyCode() == KeyEvent.VK_DOWN || e.getKeyCode() == KeyEvent.VK_SPACE
+				} else if (e.getKeyCode() == KeyEvent.VK_DOWN || e.getKeyCode() == KeyEvent.VK_SPACE
 						|| (!e.isControlDown() && e.getKeyCode() == KeyEvent.VK_ENTER)) {
 					moveViewDown();
-				}
-				if (e.getKeyCode() == KeyEvent.VK_UP) {
+				} else if (e.getKeyCode() == KeyEvent.VK_UP) {
 					moveViewUp();
-				}
-				if (e.getKeyCode() == KeyEvent.VK_F5) {
+				} else if (e.getKeyCode() == KeyEvent.VK_F5) {
 					showImage(true);
-				}
-				if (e.getKeyCode() == KeyEvent.VK_HOME) {
+				} else if (e.getKeyCode() == KeyEvent.VK_HOME) {
 					pageNo = 1;
 					showImage(true);
-				}
-				if (e.getKeyCode() == KeyEvent.VK_END) {
+				} else if (e.getKeyCode() == KeyEvent.VK_END) {
 					pageNo = pageMap.size();
 					showImage(true);
-				}
-				if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
+				} else if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
 					exitFullScreen();
-				}
-				if (e.getKeyCode() == KeyEvent.VK_M) {
+				} else if (e.getKeyCode() == KeyEvent.VK_M) {
 					if (!isFullScreen) {
 						menuBar.setVisible(!menuBar.isVisible());
 					}
-				}
-				if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_ENTER) {
+				} else if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_ENTER) {
 					if (!isFullScreen) {
 						isFullScreen = true;
 						// 释放前一个frame
