@@ -79,6 +79,8 @@ public class ComicViewer {
 	private JMenu recentViewmenu;
 	private JMenu menu_1;
 	private JMenuItem menuItem_1;
+	private JMenu menu_2;
+	private JMenuItem menuItem_2;
 
 	/**
 	 * Launch the application.
@@ -193,6 +195,17 @@ public class ComicViewer {
 		});
 		menu.add(mntmNewMenuItem);
 
+		menu_2 = new JMenu("查看");
+		menuBar.add(menu_2);
+
+		menuItem_2 = new JMenuItem("跳转到...");
+		menuItem_2.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				gotoPage();
+			}
+		});
+		menu_2.add(menuItem_2);
+
 		menu_1 = new JMenu("帮助");
 		menuBar.add(menu_1);
 
@@ -264,6 +277,8 @@ public class ComicViewer {
 					showImage(true);
 				} else if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
 					exitFullScreen();
+				} else if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_G) {
+					gotoPage();
 				} else if (e.getKeyCode() == KeyEvent.VK_M) {
 					if (!isFullScreen) {
 						menuBar.setVisible(!menuBar.isVisible());
@@ -465,6 +480,7 @@ public class ComicViewer {
 						if (StringUtils.equals(sectionInfo.getSectionId(), sectionId)) {
 							if (isNextPage ? i < sectionList.size() - 1 : i > 0) {
 								sectionId = sectionList.get(isNextPage ? i + 1 : i - 1).getSectionId();
+								sectionName = sectionList.get(isNextPage ? i + 1 : i - 1).getName();
 								pageMap.clear();
 								try {
 									List<PageInfo> pages = picEngine.getPages(comicId, sectionId);
@@ -600,6 +616,26 @@ public class ComicViewer {
 			} else {
 				// 本页看完了，上一页
 				changePage(false);
+			}
+		}
+	}
+
+	private void gotoPage() {
+		if (!isFullScreen) {
+			if (channelInfo != null) {
+				String page = JOptionPane.showInputDialog("请输入跳转的页码" + pageNo + "/" + pageMap.size());
+				if (StringUtils.isNotBlank(page)) {
+					int pageIndex = Integer.parseInt(page);
+					if (pageIndex < 1) {
+						pageIndex = 1;
+					} else if (pageIndex > pageMap.size()) {
+						pageIndex = pageMap.size();
+					}
+					pageNo = pageIndex;
+					showImage(true);
+				}
+			} else {
+				JOptionPane.showMessageDialog(null, "没有打开的漫画");
 			}
 		}
 	}
