@@ -47,6 +47,7 @@ import org.slf4j.LoggerFactory;
 import com.raddle.comic.LogWrapper;
 import com.raddle.comic.RecentViewHelper;
 import com.raddle.comic.RecentViewInfo;
+import com.raddle.comic.ViewConfigHelper;
 import com.raddle.comic.engine.ChannelInfo;
 import com.raddle.comic.engine.ComicInfo;
 import com.raddle.comic.engine.ComicPluginEngine;
@@ -216,9 +217,11 @@ public class ComicViewer {
 		continueViewItem = new JCheckBoxMenuItem("连续显示");
 		continueViewItem.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
+				ViewConfigHelper.setContinueView(continueViewItem.isSelected());
 				showImage(true);
 			}
 		});
+		continueViewItem.setSelected(ViewConfigHelper.getIsContinueView());
 		menu_2.add(continueViewItem);
 
 		menu_1 = new JMenu("帮助");
