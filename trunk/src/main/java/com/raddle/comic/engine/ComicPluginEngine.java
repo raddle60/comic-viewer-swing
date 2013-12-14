@@ -119,6 +119,9 @@ public class ComicPluginEngine {
 					if (o.get("pageNo", topScope) != null && o.get("pageNo", topScope) != Scriptable.NOT_FOUND) {
 						info.setPageNo(new Double(o.get("pageNo", topScope) + "").intValue());
 					}
+					if (o.get("filename", topScope) != null && o.get("filename", topScope) != Scriptable.NOT_FOUND) {
+						info.setFilename(o.get("filename", topScope) + "");
+					}
 					if (o.get("pageUrl", topScope) != null && o.get("pageUrl", topScope) != Scriptable.NOT_FOUND) {
 						info.setPageUrl(o.get("pageUrl", topScope) + "");
 					}
