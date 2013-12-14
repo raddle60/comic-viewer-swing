@@ -9,6 +9,7 @@ package com.raddle.comic.engine;
  */
 public class PageInfo {
 	private Integer pageNo;
+	private String filename;
 	private String pageUrl;
 
 	public Integer getPageNo() {
@@ -30,5 +31,13 @@ public class PageInfo {
 	@Override
 	public String toString() {
 		return pageNo + "";
+	}
+
+	public String getFilename() {
+		return filename;
+	}
+
+	public void setFilename(String filename) {
+		this.filename = filename;
 	}
 }
