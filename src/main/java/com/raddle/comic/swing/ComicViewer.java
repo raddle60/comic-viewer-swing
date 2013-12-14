@@ -628,6 +628,7 @@ public class ComicViewer {
 			pageNo = openComicDialog.getPageNo();
 			channelInfo = openComicDialog.getChannelInfo();
 			sectionList = null;
+			picStartPoint.y = 0;
 			contiueImageHelper = new ContiueImageHelper();
 			showImage(true);
 		}
