@@ -53,8 +53,21 @@ function getPages(comicId, sectionId) {
 	var content = httpclient.getRemotePage("http://www.1kkk.com/" + sectionId + "/", "utf-8", {});
 	var qqzone = content.match(new RegExp(">location.href=\"([^\"<>]+)\"<"));
 	if (content.indexOf("qq.com") != -1 && qqzone != null && qqzone.length > 0) {
-		var qqcontent = httpclient.getRemotePage(qqzone[1], "utf-8", {});
-		// 待解析
+		var ids = qqzone[1].match(new RegExp("http://user.qzone.qq.com/(\\d+)/blog/(\\d+)"));
+		var blogUrl = "http://b11.qzone.qq.com/cgi-bin/blognew/blog_output_data?uin="+ids[1]+"&blogid="+ids[2]+"&styledm=ctc.qzonestyle.gtimg.cn&imgdm=ctc.qzs.qq.com&bdm=b.qzone.qq.com&mode=2&numperpage=15&timestamp="+(new Date().getTime()/1000)+"&dprefix=&blogseed=0.06768302366351653&inCharset=utf-8&outCharset=utf-8&ref=qzone&entertime="+new Date().getTime();
+		var qqcontent = httpclient.getRemotePage(blogUrl, "utf-8", {});
+		var imageContent = qqcontent.substring(qqcontent.indexOf("id=\"blogDetailDiv\""),qqcontent.indexOf("id=\"paperPicArea1\""));
+		var imageDivs = qqcontent.match(new RegExp("<div><img[^<>]+src=\"[^\"]+\"[^<>]+/></div>","g"));
+		for ( var i = 0; i < imageDivs.length; i++) {
+			var url = imageDivs[i].match(new RegExp("<div><img[^<>]+src=\"([^\"]+)\"[^<>]+/></div>"))[1];
+			if(url != null) {
+				pages.push({
+						pageNo : i + 1,
+						filename : (i + 1) + ".jpg",
+						pageUrl : url
+				});
+			}
+		}
 	} else {
 		var totalCount = content.match(new RegExp("总<span>(\\d+)</span>页"))[1];
 		for ( var i = 0; i < totalCount; i++) {
@@ -74,14 +87,19 @@ function getPages(comicId, sectionId) {
  * @param imageUrl
  */
 function loadRemoteImage(comicId, sectionId, pageNo, imageUrl) {
-	var content = httpclient.getRemotePage("http://www.1kkk.com/" + sectionId + "/", "utf-8", {});
-	var midMatched = content.match(new RegExp("var mid=[^<>]+imagecount;"));
-	var m5kkeyMatched = content.match(new RegExp("id=\"dm5_key\" value=\"([^\"]*)\""));
-	if(midMatched != null && m5kkeyMatched != null && m5kkeyMatched.length > 0){
-		var cidObj = engine.eval({}, midMatched);
-		var urlContent = httpclient.getRemotePage("http://www.1kkk.com/" + sectionId + "/chapterimagefun.ashx?cid=" + cidObj.cid + "&page="
-				+ pageNo + "&key=" + m5kkeyMatched[1] + "&maxcount=10", "utf-8", {});
-		var result = engine.eval({}, "eval(" + urlContent + ");");
-		httpclient.saveRemoteImage(channel.name,comicId,sectionId,result.d[0],pageNo+".jpg",{});
+	if(imageUrl.indexOf("1kkk") != -1){
+		var content = httpclient.getRemotePage("http://www.1kkk.com/" + sectionId + "/", "utf-8", {});
+		var midMatched = content.match(new RegExp("var mid=[^<>]+imagecount;"));
+		var m5kkeyMatched = content.match(new RegExp("id=\"dm5_key\" value=\"([^\"]*)\""));
+		if(midMatched != null && m5kkeyMatched != null && m5kkeyMatched.length > 0){
+			var cidObj = engine.eval({}, midMatched);
+			var urlContent = httpclient.getRemotePage("http://www.1kkk.com/" + sectionId + "/chapterimagefun.ashx?cid=" + cidObj.cid + "&page="
+					+ pageNo + "&key=" + m5kkeyMatched[1] + "&maxcount=10", "utf-8", {});
+			var result = engine.eval({}, "eval(" + urlContent + ");");
+			httpclient.saveRemoteImage(channel.name,comicId,sectionId,result.d[0],pageNo+".jpg",{});
+		}
+	} else {
+		httpclient.saveRemoteImage(channel.name,comicId,sectionId,imageUrl,pageNo+".jpg",{});
 	}
+	
 }
