@@ -92,16 +92,18 @@ function loadRemoteImage(comicId, sectionId, pageNo, imageUrl) {
 		var midMatched = content.match(new RegExp("var mid=[^<>]+imagecount;"));
 		var m5kkeyMatched = content.match(new RegExp("eval\\(function\\(.+0,\\{\\}\\)\\)"));
 		var dm5_key = "";
-		var result = engine.eval({
-			$: function(){
-				return {
-					val:function(v){
-						dm5_key = v;
-					}
-				};
-			}
-		},m5kkeyMatched);
-		if(midMatched != null && m5kkeyMatched != null && m5kkeyMatched.length > 0){
+		if(m5kkeyMatched != null){
+			var result = engine.eval({
+				$: function(){
+					return {
+						val:function(v){
+							dm5_key = v;
+						}
+					};
+				}
+			},m5kkeyMatched);
+		}
+		if(midMatched != null){
 			httpclient.getRemotePage("http://www.1kkk.com/userinfo.ashx?d="+encodeURIComponent(new Date()+""), "utf-8",{
 				"Referer" :"http://www.1kkk.com/" + sectionId + "/"
 			});
