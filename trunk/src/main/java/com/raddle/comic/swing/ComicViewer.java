@@ -329,6 +329,14 @@ public class ComicViewer {
 					movePic(0, 50);
 				}
 				picPane.repaint();
+				if (continueViewItem.isSelected() && image != null) {
+					if (preImage != null) {
+						int height = 200 + pageIntervalHeight + preImage.getHeight(null);
+						if (0 - picStartPoint.y > height) {
+							changePage(true);
+						}
+					}
+				}
 			}
 		});
 		frame.getContentPane().add(picPane, BorderLayout.CENTER);
@@ -425,6 +433,10 @@ public class ComicViewer {
 							}
 							try {
 								image = loadImage(pageInfo);
+								int prepreHeigth = 0;
+								if (preImage != null) {
+									prepreHeigth = preImage.getHeight(null);
+								}
 								if (continueViewItem.isSelected() && image != null) {
 									if (pageNo > 1) {
 										try {
@@ -466,8 +478,9 @@ public class ComicViewer {
 									graphics.dispose();
 									complexImage = merged;
 									// 重新计算起始位置
-									if (preImage != null) {
-										picStartPoint.y = picStartPoint.y - pageIntervalHeight - preImage.getHeight(null);
+									// 向下移动
+									if (preImage != null && isNextPage) {
+										picStartPoint.y = picStartPoint.y + pageIntervalHeight + preImage.getHeight(null);
 									}
 									movePic(0, 0);
 									picPane.repaint();
@@ -596,7 +609,7 @@ public class ComicViewer {
 				if (!cacheFile.getParentFile().exists()) {
 					cacheFile.getParentFile().mkdirs();
 				}
-				picEngine.loadRemoteImage(comicId, sectionId, pageNo, pageInfo.getPageUrl());
+				picEngine.loadRemoteImage(comicId, sectionId, pageInfo.getPageNo(), pageInfo.getPageUrl());
 				if (cacheFile.exists()) {
 					img = ImageIO.read(cacheFile);
 				} else {
