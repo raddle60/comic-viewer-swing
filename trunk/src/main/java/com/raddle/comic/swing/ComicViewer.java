@@ -19,6 +19,7 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
@@ -26,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 
 import javax.imageio.ImageIO;
+import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JFrame;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
@@ -62,7 +64,11 @@ public class ComicViewer {
 	private Point pressedPoint;
 	private Point picStartPoint = new Point();
 	private OpenComicDialog openComicDialog = new OpenComicDialog();
+	private Image preImage;
+	private Image complexImage;
 	private Image image;
+	private Image afterImage;
+	private int pageIntervalHeight = 5;
 	private ComicPluginEngine picEngine;
 	private Map<Integer, PageInfo> pageMap = new HashMap<Integer, PageInfo>();
 	private List<SectionInfo> sectionList;
@@ -81,6 +87,7 @@ public class ComicViewer {
 	private JMenuItem menuItem_1;
 	private JMenu menu_2;
 	private JMenuItem menuItem_2;
+	private JCheckBoxMenuItem continueViewItem;
 
 	/**
 	 * Launch the application.
@@ -206,6 +213,14 @@ public class ComicViewer {
 		});
 		menu_2.add(menuItem_2);
 
+		continueViewItem = new JCheckBoxMenuItem("连续显示");
+		continueViewItem.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				showImage(true);
+			}
+		});
+		menu_2.add(continueViewItem);
+
 		menu_1 = new JMenu("帮助");
 		menuBar.add(menu_1);
 
@@ -225,10 +240,10 @@ public class ComicViewer {
 
 			@Override
 			public void paint(Graphics g) {
-				if (image != null) {
+				if (complexImage != null) {
 					g.setColor(Color.BLACK);
 					g.fillRect(0, 0, this.getWidth(), this.getHeight());
-					g.drawImage(image, picStartPoint.x, picStartPoint.y, this);
+					g.drawImage(complexImage, picStartPoint.x, picStartPoint.y, this);
 					// 全屏显示页
 					if (isFullScreen) {
 						g.setXORMode(Color.WHITE);
@@ -353,42 +368,42 @@ public class ComicViewer {
 	}
 
 	private void movePic(int changedX, int changedY) {
-		if (image != null) {
+		if (complexImage != null) {
 			// 移动图片，图片边界不能超出窗口
 			int x = picStartPoint.x + changedX;
 			if (x < 0) {
-				if (picPane.getWidth() > image.getWidth(null)) {
+				if (picPane.getWidth() > complexImage.getWidth(null)) {
 					picStartPoint.x = 0;
 				} else {
-					picStartPoint.x = Math.max(x, picPane.getWidth() - image.getWidth(null));
+					picStartPoint.x = Math.max(x, picPane.getWidth() - complexImage.getWidth(null));
 				}
 			} else {
-				if (picPane.getWidth() > image.getWidth(null)) {
-					picStartPoint.x = Math.min(x, picPane.getWidth() - image.getWidth(null));
+				if (picPane.getWidth() > complexImage.getWidth(null)) {
+					picStartPoint.x = Math.min(x, picPane.getWidth() - complexImage.getWidth(null));
 				} else {
 					picStartPoint.x = 0;
 				}
 			}
 			int y = picStartPoint.y + changedY;
 			if (y < 0) {
-				if (picPane.getHeight() > image.getHeight(null)) {
+				if (picPane.getHeight() > complexImage.getHeight(null)) {
 					picStartPoint.y = 0;
 				} else {
-					picStartPoint.y = Math.max(y, picPane.getHeight() - image.getHeight(null));
+					picStartPoint.y = Math.max(y, picPane.getHeight() - complexImage.getHeight(null));
 				}
 			} else {
-				if (picPane.getHeight() > image.getHeight(null)) {
-					picStartPoint.y = Math.min(y, picPane.getHeight() - image.getHeight(null));
+				if (picPane.getHeight() > complexImage.getHeight(null)) {
+					picStartPoint.y = Math.min(y, picPane.getHeight() - complexImage.getHeight(null));
 				} else {
 					picStartPoint.y = 0;
 				}
 			}
 			// 窗口大于图片，图片剧中
-			if (picPane.getWidth() > image.getWidth(null)) {
-				picStartPoint.x = (int) ((picPane.getWidth() - image.getWidth(null)) / 2.0);
+			if (picPane.getWidth() > complexImage.getWidth(null)) {
+				picStartPoint.x = (int) ((picPane.getWidth() - complexImage.getWidth(null)) / 2.0);
 			}
-			if (picPane.getHeight() > image.getHeight(null)) {
-				picStartPoint.y = (int) ((picPane.getHeight() - image.getHeight(null)) / 2.0);
+			if (picPane.getHeight() > complexImage.getHeight(null)) {
+				picStartPoint.y = (int) ((picPane.getHeight() - complexImage.getHeight(null)) / 2.0);
 			}
 		}
 	}
@@ -410,27 +425,78 @@ public class ComicViewer {
 							}
 							try {
 								image = loadImage(pageInfo);
-								if (image != null) {
-									picStartPoint = new Point();
-									if (isNextPage) {
-										// 下一页从右上角开始
-										picStartPoint.x = picPane.getWidth() - image.getWidth(null);
-									} else {
-										// 上一页从左下角开始
-										picStartPoint.y = picPane.getHeight() - image.getHeight(null);
+								if (continueViewItem.isSelected() && image != null) {
+									if (pageNo > 1) {
+										try {
+											preImage = loadImage(pageMap.get(pageNo - 1));
+										} catch (IOException e1) {
+											logger.log(e1.getMessage(), e1);
+										}
+									}
+									if (pageNo < pageMap.size() - 1) {
+										try {
+											afterImage = loadImage(pageMap.get(pageNo + 1));
+										} catch (IOException e1) {
+											logger.log(e1.getMessage(), e1);
+										}
+									}
+									// 合并图片
+									int width = image.getWidth(null);
+									int height = image.getHeight(null);
+									if (preImage != null) {
+										width = Math.max(width, preImage.getWidth(null));
+										height = height + pageIntervalHeight + preImage.getHeight(null);
+									}
+									if (afterImage != null) {
+										width = Math.max(width, afterImage.getWidth(null));
+										height = height + pageIntervalHeight + afterImage.getHeight(null);
+									}
+									BufferedImage merged = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+									int curY = 0;
+									Graphics graphics = merged.getGraphics();
+									if (preImage != null) {
+										graphics.drawImage(preImage, (int) Math.round(((width - preImage.getWidth(null)) / 2.0)), curY, null);
+										curY = curY + preImage.getHeight(null) + pageIntervalHeight;
+									}
+									graphics.drawImage(image, (int) Math.round(((width - image.getWidth(null)) / 2.0)), curY, null);
+									curY = curY + image.getHeight(null) + pageIntervalHeight;
+									if (afterImage != null) {
+										graphics.drawImage(afterImage, (int) Math.round(((width - afterImage.getWidth(null)) / 2.0)), curY, null);
+									}
+									graphics.dispose();
+									complexImage = merged;
+									// 重新计算起始位置
+									if (preImage != null) {
+										picStartPoint.y = picStartPoint.y - pageIntervalHeight - preImage.getHeight(null);
 									}
 									movePic(0, 0);
 									picPane.repaint();
-									try {
-										RecentViewHelper.updateRecentView(channelInfo, comicId, comicName, sectionId, sectionName, pageNo,
-												pageMap.size());
-									} catch (Exception e) {
-										logger.log(e.getMessage(), e);
+								} else {
+									complexImage = image;
+									preImage = null;
+									afterImage = null;
+									if (complexImage != null) {
+										picStartPoint = new Point();
+										if (isNextPage) {
+											// 下一页从右上角开始
+											picStartPoint.x = picPane.getWidth() - complexImage.getWidth(null);
+										} else {
+											// 上一页从左下角开始
+											picStartPoint.y = picPane.getHeight() - complexImage.getHeight(null);
+										}
+										movePic(0, 0);
+										picPane.repaint();
 									}
+								}
+								try {
+									RecentViewHelper
+											.updateRecentView(channelInfo, comicId, comicName, sectionId, sectionName, pageNo, pageMap.size());
+								} catch (Exception e) {
+									logger.log(e.getMessage(), e);
 								}
 							} catch (Exception e) {
 								logger.log(e.getMessage(), e);
-								image = null;
+								complexImage = null;
 								picPane.repaint();
 								JOptionPane.showMessageDialog(null, "加载图片失败," + e.getMessage());
 								return;
@@ -542,8 +608,8 @@ public class ComicViewer {
 	}
 
 	private void moveViewDown() {
-		if (image != null) {
-			if (image.getHeight(null) + picStartPoint.y > picPane.getHeight()) {
+		if (complexImage != null) {
+			if (complexImage.getHeight(null) + picStartPoint.y > picPane.getHeight()) {
 				// 没有到底,往下翻3/4个高度
 				movePic(0, 0 - (int) (picPane.getHeight() * 0.9));
 				picPane.repaint();
@@ -596,7 +662,7 @@ public class ComicViewer {
 			frame.dispose();
 			// 创建新的frame
 			createFrame();
-			if (image != null) {
+			if (complexImage != null) {
 				frame.setTitle(getBasicTitle());
 			}
 			frame.setVisible(true);
@@ -604,14 +670,14 @@ public class ComicViewer {
 	}
 
 	private void moveViewUp() {
-		if (image != null) {
+		if (complexImage != null) {
 			if (picStartPoint.y < 0) {
 				// 没有到最上面,往上翻3/4个高度
 				movePic(0, (int) (picPane.getHeight() * 0.9));
 				picPane.repaint();
-			} else if (image.getWidth(null) + picStartPoint.x > picPane.getWidth()) {
+			} else if (complexImage.getWidth(null) + picStartPoint.x > picPane.getWidth()) {
 				// 到最上面，没在最右边，往右翻3/4个宽度,移动到右上
-				movePic(0 - (int) (picPane.getWidth() * 0.9), 0 - image.getHeight(null));
+				movePic(0 - (int) (picPane.getWidth() * 0.9), 0 - complexImage.getHeight(null));
 				picPane.repaint();
 			} else {
 				// 本页看完了，上一页
