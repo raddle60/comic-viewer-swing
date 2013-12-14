@@ -698,9 +698,6 @@ public class ComicViewer {
 			if (pageNo < pageMap.size()) {
 				putImage(newImageQueue, pageNo + 1);
 			}
-			if (pageNo < pageMap.size() - 1) {
-				putImage(newImageQueue, pageNo + 2);
-			}
 			// 重新计算起始位置
 			// 原页面偏移量
 			int oldPageNo = getCurPageNo();
