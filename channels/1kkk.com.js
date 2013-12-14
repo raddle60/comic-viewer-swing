@@ -90,11 +90,21 @@ function loadRemoteImage(comicId, sectionId, pageNo, imageUrl) {
 	if(imageUrl.indexOf("1kkk") != -1){
 		var content = httpclient.getRemotePage("http://www.1kkk.com/" + sectionId + "/", "utf-8", {});
 		var midMatched = content.match(new RegExp("var mid=[^<>]+imagecount;"));
-		var m5kkeyMatched = content.match(new RegExp("id=\"dm5_key\" value=\"([^\"]*)\""));
+		var m5kkeyMatched = content.match(new RegExp("eval\\(function\\(.+0,\\{\\}\\)\\)"));
+		var dm5_key = "";
+		var result = engine.eval({
+			$: function(){
+				return {
+					val:function(v){
+						dm5_key = v;
+					}
+				};
+			}
+		},m5kkeyMatched);
 		if(midMatched != null && m5kkeyMatched != null && m5kkeyMatched.length > 0){
 			var cidObj = engine.eval({}, midMatched);
 			var urlContent = httpclient.getRemotePage("http://www.1kkk.com/" + sectionId + "/chapterimagefun.ashx?cid=" + cidObj.cid + "&page="
-					+ pageNo + "&key=" + m5kkeyMatched[1] + "&maxcount=10", "utf-8", {});
+					+ pageNo + "&key=" + dm5_key + "&maxcount=10", "utf-8", {});
 			var result = engine.eval({}, "eval(" + urlContent + ");");
 			httpclient.saveRemoteImage(channel.name,comicId,sectionId,result.d[0],pageNo+".jpg",{});
 		}
