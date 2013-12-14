@@ -351,6 +351,12 @@ public class ComicViewer {
 				int changedY = e.getPoint().y - pressedPoint.y;
 				movePic(changedX, changedY);
 				pressedPoint = e.getPoint();
+				if (continueViewItem.isSelected() && pageMap.size() > 0) {
+					if (pageNo != contiueImageHelper.getCurPageNo()) {
+						pageNo = contiueImageHelper.getCurPageNo();
+						showImage(false);
+					}
+				}
 				picPane.repaint();
 			}
 		});
