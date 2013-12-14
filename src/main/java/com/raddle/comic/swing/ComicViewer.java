@@ -22,7 +22,9 @@ import java.awt.event.MouseWheelListener;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.util.Deque;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -64,10 +66,7 @@ public class ComicViewer {
 	private Point pressedPoint;
 	private Point picStartPoint = new Point();
 	private OpenComicDialog openComicDialog = new OpenComicDialog();
-	private Image preImage;
 	private Image complexImage;
-	private Image image;
-	private Image afterImage;
 	private int pageIntervalHeight = 5;
 	private ComicPluginEngine picEngine;
 	private Map<Integer, PageInfo> pageMap = new HashMap<Integer, PageInfo>();
@@ -88,6 +87,7 @@ public class ComicViewer {
 	private JMenu menu_2;
 	private JMenuItem menuItem_2;
 	private JCheckBoxMenuItem continueViewItem;
+	private ContiueImageHelper contiueImageHelper = new ContiueImageHelper();
 
 	/**
 	 * Launch the application.
@@ -245,7 +245,7 @@ public class ComicViewer {
 					g.fillRect(0, 0, this.getWidth(), this.getHeight());
 					g.drawImage(complexImage, picStartPoint.x, picStartPoint.y, this);
 					// 全屏显示页
-					if (isFullScreen) {
+					if (isFullScreen && !continueViewItem.isSelected()) {
 						g.setXORMode(Color.WHITE);
 						g.drawString(pageNo + "/" + pageMap.size(), this.getWidth() - 50, this.getHeight() - 10);
 						g.drawString(StringUtils.defaultString(sectionName, sectionId), 20, this.getHeight() - 10);
@@ -324,19 +324,23 @@ public class ComicViewer {
 			public void mouseWheelMoved(MouseWheelEvent e) {
 				if (e.getWheelRotation() == 1) {
 					movePic(0, -50);
-				}
-				if (e.getWheelRotation() == -1) {
-					movePic(0, 50);
-				}
-				picPane.repaint();
-				if (continueViewItem.isSelected() && image != null) {
-					if (preImage != null) {
-						int height = 200 + pageIntervalHeight + preImage.getHeight(null);
-						if (0 - picStartPoint.y > height) {
-							changePage(true);
+					if (continueViewItem.isSelected() && pageMap.size() > 0) {
+						if (pageNo != contiueImageHelper.getCurPageNo()) {
+							pageNo = contiueImageHelper.getCurPageNo();
+							showImage(true);
 						}
 					}
 				}
+				if (e.getWheelRotation() == -1) {
+					movePic(0, 50);
+					if (continueViewItem.isSelected() && pageMap.size() > 0) {
+						if (pageNo != contiueImageHelper.getCurPageNo()) {
+							pageNo = contiueImageHelper.getCurPageNo();
+							showImage(false);
+						}
+					}
+				}
+				picPane.repaint();
 			}
 		});
 		frame.getContentPane().add(picPane, BorderLayout.CENTER);
@@ -417,7 +421,7 @@ public class ComicViewer {
 	}
 
 	private synchronized void showImage(final boolean isNextPage) {
-		if (!loading) {
+		if (!loading && pageMap.size() > 0) {
 			loading = true;
 			frame.setTitle(getBasicTitle() + " - loading");
 			new Thread() {
@@ -432,62 +436,13 @@ public class ComicViewer {
 								return;
 							}
 							try {
-								image = loadImage(pageInfo);
-								int prepreHeigth = 0;
-								if (preImage != null) {
-									prepreHeigth = preImage.getHeight(null);
-								}
-								if (continueViewItem.isSelected() && image != null) {
-									if (pageNo > 1) {
-										try {
-											preImage = loadImage(pageMap.get(pageNo - 1));
-										} catch (IOException e1) {
-											logger.log(e1.getMessage(), e1);
-										}
-									}
-									if (pageNo < pageMap.size() - 1) {
-										try {
-											afterImage = loadImage(pageMap.get(pageNo + 1));
-										} catch (IOException e1) {
-											logger.log(e1.getMessage(), e1);
-										}
-									}
-									// 合并图片
-									int width = image.getWidth(null);
-									int height = image.getHeight(null);
-									if (preImage != null) {
-										width = Math.max(width, preImage.getWidth(null));
-										height = height + pageIntervalHeight + preImage.getHeight(null);
-									}
-									if (afterImage != null) {
-										width = Math.max(width, afterImage.getWidth(null));
-										height = height + pageIntervalHeight + afterImage.getHeight(null);
-									}
-									BufferedImage merged = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-									int curY = 0;
-									Graphics graphics = merged.getGraphics();
-									if (preImage != null) {
-										graphics.drawImage(preImage, (int) Math.round(((width - preImage.getWidth(null)) / 2.0)), curY, null);
-										curY = curY + preImage.getHeight(null) + pageIntervalHeight;
-									}
-									graphics.drawImage(image, (int) Math.round(((width - image.getWidth(null)) / 2.0)), curY, null);
-									curY = curY + image.getHeight(null) + pageIntervalHeight;
-									if (afterImage != null) {
-										graphics.drawImage(afterImage, (int) Math.round(((width - afterImage.getWidth(null)) / 2.0)), curY, null);
-									}
-									graphics.dispose();
-									complexImage = merged;
-									// 重新计算起始位置
-									// 向下移动
-									if (preImage != null && isNextPage) {
-										picStartPoint.y = picStartPoint.y + pageIntervalHeight + preImage.getHeight(null);
-									}
+								if (continueViewItem.isSelected()) {
+									contiueImageHelper.changePage(pageNo);
+									complexImage = contiueImageHelper.getCompositeImage();
 									movePic(0, 0);
 									picPane.repaint();
 								} else {
-									complexImage = image;
-									preImage = null;
-									afterImage = null;
+									complexImage = loadImage(pageInfo);
 									if (complexImage != null) {
 										picStartPoint = new Point();
 										if (isNextPage) {
@@ -664,6 +619,7 @@ public class ComicViewer {
 			pageNo = openComicDialog.getPageNo();
 			channelInfo = openComicDialog.getChannelInfo();
 			sectionList = null;
+			contiueImageHelper = new ContiueImageHelper();
 			showImage(true);
 		}
 	}
@@ -716,6 +672,124 @@ public class ComicViewer {
 			} else {
 				JOptionPane.showMessageDialog(null, "没有打开的漫画");
 			}
+		}
+	}
+
+	private class ContiueImageHelper {
+		private Deque<ImageInfo> imageQueue = new LinkedList<ComicViewer.ImageInfo>();
+		private int intervalHeight = 5;
+
+		public void changePage(int pageNo) {
+			// 缓存前一个，后两个
+			Deque<ImageInfo> newImageQueue = new LinkedList<ComicViewer.ImageInfo>();
+			if (pageNo > 1) {
+				putImage(newImageQueue, pageNo - 1);
+			}
+			putImage(newImageQueue, pageNo);
+			if (pageNo < pageMap.size()) {
+				putImage(newImageQueue, pageNo + 1);
+			}
+			if (pageNo < pageMap.size() - 1) {
+				putImage(newImageQueue, pageNo + 2);
+			}
+			// 重新计算起始位置
+			// 原页面偏移量
+			int oldPageNo = getCurPageNo();
+			int posY = Math.abs(picStartPoint.y);
+			for (ImageInfo imageInfo : imageQueue) {
+				if (imageInfo.pageNo < oldPageNo) {
+					posY = posY - imageInfo.height - intervalHeight;
+				}
+			}
+			imageQueue = newImageQueue;
+			// 新偏移量
+			boolean has = false;
+			for (ImageInfo imageInfo : imageQueue) {
+				if (imageInfo.pageNo < oldPageNo) {
+					posY = posY + imageInfo.height + intervalHeight;
+				} else if (imageInfo.pageNo == oldPageNo) {
+					has = true;
+				}
+			}
+			if (has) {
+				picStartPoint.y = 0 - posY;
+			} else {
+				// goto到某一页了
+				picStartPoint.y = 0 - imageQueue.getFirst().height - intervalHeight;
+			}
+		}
+
+		public int getCurPageNo() {
+			if (imageQueue.size() == 0) {
+				return pageNo;
+			}
+			int curY = 0;
+			int posY = Math.abs(picStartPoint.y);
+			for (ImageInfo imageInfo : imageQueue) {
+				curY = curY + imageInfo.height + intervalHeight;
+				if (curY > posY) {
+					return imageInfo.pageNo;
+				}
+			}
+			return imageQueue.getLast().pageNo;
+		}
+
+		public Image getCompositeImage() {
+			// 合并图片
+			int width = 0;
+			int height = 0;
+			for (ImageInfo imageInfo : imageQueue) {
+				width = Math.max(width, imageInfo.width);
+				height = height + intervalHeight + imageInfo.height;
+			}
+			BufferedImage merged = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+			int curY = 0;
+			Graphics graphics = merged.getGraphics();
+			for (ImageInfo imageInfo : imageQueue) {
+				graphics.setColor(Color.BLACK);
+				graphics.drawImage(imageInfo.image, (int) Math.round(((width - imageInfo.width) / 2.0)), curY, null);
+				graphics.setXORMode(Color.WHITE);
+				graphics.drawString(imageInfo.pageNo + "/" + pageMap.size(), width - 50, curY + imageInfo.height - 10);
+				graphics.setXORMode(Color.BLACK);
+				curY = curY + imageInfo.height + pageIntervalHeight;
+			}
+			graphics.dispose();
+			return merged;
+		}
+
+		private void putImage(Deque<ImageInfo> newImageQueue, int pageNo) {
+			if (getImage(pageNo) != null) {
+				newImageQueue.add(getImage(pageNo));
+			} else {
+				try {
+					newImageQueue.add(new ImageInfo(pageNo, loadImage(pageMap.get(pageNo))));
+				} catch (IOException e) {
+					logger.log(e.getMessage(), e);
+				}
+			}
+		}
+
+		private ImageInfo getImage(int pageNo) {
+			for (ImageInfo imageInfo : imageQueue) {
+				if (imageInfo.pageNo == pageNo) {
+					return imageInfo;
+				}
+			}
+			return null;
+		}
+	}
+
+	private class ImageInfo {
+		private int pageNo;
+		private Image image;
+		private int width;
+		private int height;
+
+		public ImageInfo(int pageNo, Image image) {
+			this.pageNo = pageNo;
+			this.image = image;
+			this.width = image.getWidth(null);
+			this.height = image.getHeight(null);
 		}
 	}
 }
