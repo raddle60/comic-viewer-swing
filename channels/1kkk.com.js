@@ -102,19 +102,9 @@ function loadRemoteImage(comicId, sectionId, pageNo, imageUrl) {
 			}
 		},m5kkeyMatched);
 		if(midMatched != null && m5kkeyMatched != null && m5kkeyMatched.length > 0){
-			httpclient.getRemotePage("http://www.1kkk.com/" + sectionId + "/wxh.js?pt=4&va=10&v=20131213150158&key=", "utf-8",{
-				"Referer" :"http://www.1kkk.com/" + sectionId + "/"
-			});
-			httpclient.getRemotePage("http://www.1kkk.com/showstatus.ashx?d="+encodeURIComponent(new Date()+""), "utf-8",{
-				"Referer" :"http://www.1kkk.com/" + sectionId + "/"
-			});
 			httpclient.getRemotePage("http://www.1kkk.com/userinfo.ashx?d="+encodeURIComponent(new Date()+""), "utf-8",{
 				"Referer" :"http://www.1kkk.com/" + sectionId + "/"
 			});
-			httpclient.getRemotePage("http://www.1kkk.com/wxhfm.html?cid=160&v=20131213150158&a=10", "utf-8",{
-				"Referer" :"http://www.1kkk.com/" + sectionId + "/"
-			});
-			httpclient.getRemotePage("http://www.1kkk.com/" + sectionId + "/wxh.js?pt=4&va=10&v=20131213150158&key=", "utf-8",{});
 			var cidObj = engine.eval({}, midMatched);
 			var urlContent = httpclient.getRemotePage("http://www.1kkk.com/" + sectionId + "/chapterimagefun.ashx?cid=" + cidObj.cid + "&page="
 					+ pageNo + "&key=" + dm5_key + "&maxcount=10", "utf-8", {
