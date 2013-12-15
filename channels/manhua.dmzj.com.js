@@ -5,8 +5,8 @@ var channel = {
 	name : "动漫之家",
 	home : "http://manhua.dmzj.com/",
 	desc : "http://manhua.dmzj.com/mowangnaiba/\nmowangnaiba是漫画Id\n"+
-	"http://manhua.dmzj.com/mowangnaiba/21483.shtml\nmowangnaiba是漫画Id\n21483是章节Id\n只支持腾讯漫画最后一章",
-	index : 4
+	"http://manhua.dmzj.com/mowangnaiba/21483.shtml\nmowangnaiba是漫画Id\n21483是章节Id\n不支持腾讯漫画",
+	index : 5
 }
 
 /**
@@ -68,9 +68,5 @@ function getPages(comicId, sectionId) {
  * @param imageUrl
  */
 function loadRemoteImage(comicId, sectionId, pageNo, imageUrl) {
-	if(imageUrl.indexOf("dmzj") != -1){
-		httpclient.saveRemoteImage(channel.name,comicId,sectionId,imageUrl, null ,{});
-	} else {
-		httpclient.saveRemoteImage(channel.name,comicId,sectionId,imageUrl,pageNo+".jpg",{});
-	}
+	httpclient.saveRemoteImage(channel.name,comicId,sectionId,imageUrl, null ,{});
 }
