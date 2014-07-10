@@ -13,6 +13,7 @@ import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.http.HttpEntity;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -29,6 +30,9 @@ public class HttpHelper {
 	static {
 		HttpClientBuilder custom = HttpClients.custom();
 		custom.setUserAgent("Mozilla/5.0 (Windows NT 6.1; rv:25.0) Gecko/20100101 Firefox/25.0");
+		RequestConfig config = RequestConfig.custom().setConnectionRequestTimeout(1 * 1000).setSocketTimeout(5 * 1000).setConnectTimeout(1 * 1000)
+				.build();
+		custom.setDefaultRequestConfig(config);
 		httpclient = custom.build();
 	}
 
