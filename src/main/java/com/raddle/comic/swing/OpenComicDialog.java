@@ -143,10 +143,6 @@ public class OpenComicDialog extends JDialog {
 							JOptionPane.showMessageDialog(null, "没有填写漫画id");
 							return;
 						}
-						if (StringUtils.isBlank(sectionIdTxt.getText())) {
-							JOptionPane.showMessageDialog(null, "没有填写章节id");
-							return;
-						}
 						ComicInfo comicInfo = pluginEngine.getSections(comicIdTxt.getText());
 						if (comicInfo == null) {
 							JOptionPane.showMessageDialog(null, "没获得到漫画信息");
@@ -157,6 +153,9 @@ public class OpenComicDialog extends JDialog {
 						if (sections.size() == 0) {
 							JOptionPane.showMessageDialog(null, "没获得到章节信息");
 							return;
+						}
+						if(StringUtils.isEmpty(sectionIdTxt.getText())){
+							sectionIdTxt.setText(sections.get(sections.size() - 1).getSectionId());
 						}
 						boolean matched = false;
 						for (SectionInfo sectionInfo : sections) {
