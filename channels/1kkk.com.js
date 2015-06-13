@@ -51,22 +51,22 @@ function getSections(comicId) {
 function getPages(comicId, sectionId) {
 	var pages = [];
 	var content = httpclient.getRemotePage("http://www.1kkk.com/" + sectionId + "/", "utf-8", {});
-	var qqzone = content.match(new RegExp(">location.href=\"([^\"<>]+)\"<"));
-	if (content.indexOf("qq.com") != -1 && qqzone != null && qqzone.length > 0) {
-		var ids = qqzone[1].match(new RegExp("http://user.qzone.qq.com/(\\d+)/blog/(\\d+)"));
-		var blogUrl = "http://b11.qzone.qq.com/cgi-bin/blognew/blog_output_data?uin="+ids[1]+"&blogid="+ids[2]+"&styledm=ctc.qzonestyle.gtimg.cn&imgdm=ctc.qzs.qq.com&bdm=b.qzone.qq.com&mode=2&numperpage=15&timestamp="+(new Date().getTime()/1000)+"&dprefix=&blogseed=0.06768302366351653&inCharset=utf-8&outCharset=utf-8&ref=qzone&entertime="+new Date().getTime();
-		var qqcontent = httpclient.getRemotePage(blogUrl, "utf-8", {});
-		var imageContent = qqcontent.substring(qqcontent.indexOf("id=\"blogDetailDiv\""),qqcontent.indexOf("id=\"paperPicArea1\""));
-		var imageDivs = qqcontent.match(new RegExp("<div><img[^<>]+src=\"[^\"]+\"[^<>]+/></div>","g"));
-		for ( var i = 0; i < imageDivs.length; i++) {
-			var url = imageDivs[i].match(new RegExp("<div><img[^<>]+src=\"([^\"]+)\"[^<>]+/></div>"))[1];
-			if(url != null) {
-				pages.push({
-						pageNo : i + 1,
-						filename : (i + 1) + ".jpg",
-						pageUrl : url
-				});
-			}
+	var chaptUrlJs = content.match(new RegExp("eval\\(function\\(p.*,0,\\{\\}\\)\\)"));
+	var chaptUrls = engine.eval({}, "eval(" + chaptUrlJs + ");");
+	var url = "";
+	if(chaptUrls.CHAPTERURL != null){
+		url = chaptUrls.CHAPTERURL.get(sectionId.substring(1));
+	}
+	if (url.indexOf("qq.com") != -1) {
+		var qqcontent = httpclient.getRemotePage(url, "utf-8", {});
+		var dataJs = qqcontent.match(new RegExp("var DATA = '(.+)',"));
+		var images = getImageUrls(dataJs[1]);
+		for ( var i = 0; i < images.length; i++) {
+			pages.push({
+					pageNo : i + 1,
+					filename : (i + 1) + ".jpg",
+					pageUrl : images[i].url
+			});
 		}
 	} else {
 		var totalCount = content.match(new RegExp("总<span>(\\d+)</span>页"))[1];
@@ -78,6 +78,32 @@ function getPages(comicId, sectionId) {
 		}
 	}
 	return pages;
+}
+
+function getImageUrls(DATA){
+	!function () {
+	    eval(function (p, a, c, k, e, r) {
+	        e = function (c) {
+	            return (c < a ? '' : e(parseInt(c / a))) + ((c = c % a) > 35 ? String.fromCharCode(c + 29)  : c.toString(36))
+	        };
+	        if (!''.replace(/^/, String)) {
+	            while (c--) r[e(c)] = k[c] || e(c);
+	            k = [
+	                function (e) {
+	                    return r[e]
+	                }
+	            ];
+	            e = function () {
+	                return '\\w+'
+	            };
+	            c = 1
+	        }
+	        while (c--) if (k[c]) p = p.replace(new RegExp('\\b' + e(c) + '\\b', 'g'), k[c]);
+	        return p
+	    }('p s(){i="C+/=";H.q=p(c){o a="",b,d,h,f,g,e=0;z(c=c.J(/[^A-L-M-9\\+\\/\\=]/g,"");e<c.r;)b=i.l(c.k(e++)),d=i.l(c.k(e++)),f=i.l(c.k(e++)),g=i.l(c.k(e++)),b=b<<2|d>>4,d=(d&t)<<4|f>>2,h=(f&3)<<6|g,a+=5.7(b),w!=f&&(a+=5.7(d)),w!=g&&(a+=5.7(h));n a=y(a)};y=p(c){z(o a="",b=0,d=D=8=0;b<c.r;)d=c.j(b),E>d?(a+=5.7(d),b++):F<d&&G>d?(8=c.j(b+1),a+=5.7((d&I)<<6|8&m),b+=2):(8=c.j(b+1),x=c.j(b+2),a+=5.7((d&t)<<K|(8&m)<<6|x&m),b+=3);n a}}o B=v s;u=(v N("n "+B.q(u.O(1))))();', 51, 51, '|||||String||fromCharCode|c2||||||||||_keyStr|charCodeAt|charAt|indexOf|63|return|var|function|decode|length|Base|15|DATA|new|64|c3|_utf8_decode|for|||ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789|c1|128|191|224|this|31|replace|12|Za|z0|Function|substring'.split('|'), 0, {
+	    }))
+	}();
+	return DATA.picture;
 }
 
 /**
