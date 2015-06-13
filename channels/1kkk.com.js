@@ -57,7 +57,7 @@ function getPages(comicId, sectionId) {
 	if(chaptUrls.CHAPTERURL != null){
 		url = chaptUrls.CHAPTERURL.get(sectionId.substring(1));
 	}
-	if (url.indexOf("qq.com") != -1) {
+	if (url.indexOf("ac.qq.com") != -1) {
 		var qqcontent = httpclient.getRemotePage(url, "utf-8", {});
 		var dataJs = qqcontent.match(new RegExp("var DATA = '(.+)',"));
 		var images = getImageUrls(dataJs[1]);
@@ -67,6 +67,24 @@ function getPages(comicId, sectionId) {
 					filename : (i + 1) + ".jpg",
 					pageUrl : images[i].url
 			});
+		}
+	} else if (url.indexOf("qzone.qq.com") != -1) {
+		var ids = url.match(new RegExp("http://user.qzone.qq.com/(\\d+)/blog/(\\d+)"));
+		var blogUrl = "http://b11.qzone.qq.com/cgi-bin/blognew/blog_output_data?uin="+ids[1]+"&blogid="+ids[2]+"&styledm=ctc.qzonestyle.gtimg.cn&imgdm=ctc.qzs.qq.com&bdm=b.qzone.qq.com&mode=2&numperpage=15&timestamp="+(new Date().getTime()/1000)+"&dprefix=&blogseed=0.06768302366351653&inCharset=utf-8&outCharset=utf-8&ref=qzone&entertime="+new Date().getTime();
+		var qqcontent = httpclient.getRemotePage(blogUrl, "utf-8", {
+			"Referer" : url
+		});
+		var imageContent = qqcontent.substring(qqcontent.indexOf("id=\"blogDetailDiv\""),qqcontent.indexOf("id=\"paperPicArea1\""));
+		var imageDivs = qqcontent.match(new RegExp("<br/><img[^<>]+src=\"[^\"]+\"[^<>]+/><br/>","g"));
+		for ( var i = 0; i < imageDivs.length; i++) {
+			var url = imageDivs[i].match(new RegExp("<br/><img[^<>]+src=\"([^\"]+)\"[^<>]+/><br/>"))[1];
+			if(url != null) {
+				pages.push({
+						pageNo : i + 1,
+						filename : (i + 1) + ".jpg",
+						pageUrl : url
+				});
+			}
 		}
 	} else {
 		var totalCount = content.match(new RegExp("总<span>(\\d+)</span>页"))[1];
