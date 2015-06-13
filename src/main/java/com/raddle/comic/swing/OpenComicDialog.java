@@ -46,9 +46,10 @@ public class OpenComicDialog extends JDialog {
 	private JComboBox<PageInfo> pageNoBox;
 	private List<PageInfo> pageInfos;
 	private JTextArea descTxt;
-	private JLabel lastSectionIdLeb;
+	private JTextField lastSectionIdLeb;
 	private JLabel comicNameLeb;
 	private String sectionName;
+	private JTextArea recentChpTxt;
 
 	/**
 	 * Launch the application.
@@ -67,7 +68,7 @@ public class OpenComicDialog extends JDialog {
 	 * Create the dialog.
 	 */
 	public OpenComicDialog() {
-		setBounds(100, 100, 655, 421);
+		setBounds(100, 100, 773, 606);
 		getContentPane().setLayout(new BorderLayout());
 		contentPanel.setBorder(new EmptyBorder(5, 5, 5, 5));
 		getContentPane().add(contentPanel, BorderLayout.CENTER);
@@ -124,7 +125,7 @@ public class OpenComicDialog extends JDialog {
 		contentPanel.add(pageNoBox);
 
 		JScrollPane scrollPane = new JScrollPane();
-		scrollPane.setBounds(10, 114, 619, 229);
+		scrollPane.setBounds(10, 114, 751, 147);
 		contentPanel.add(scrollPane);
 
 		descTxt = new JTextArea();
@@ -134,6 +135,7 @@ public class OpenComicDialog extends JDialog {
 		getBtn.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
+				recentChpTxt.setText("");
 				ChannelInfo selectedItem = (ChannelInfo) channelBox.getSelectedItem();
 				if (selectedItem != null) {
 					ComicPluginEngine pluginEngine = new ComicPluginEngine();
@@ -170,6 +172,13 @@ public class OpenComicDialog extends JDialog {
 							if (StringUtils.isNotBlank(sections.get(sections.size() - 1).getName())) {
 								lastSectionIdLeb.setText(lastSectionIdLeb.getText() + "(名称：" + sections.get(sections.size() - 1).getName() + ")");
 							}
+							StringBuilder sb = new StringBuilder();
+							for (int i = 0; i < Math.min(sections.size(), 15); i++) {
+								sb.append(
+										sections.get(sections.size() - i - 1).getSectionId() + " - "
+												+ sections.get(sections.size() - i - 1).getName()).append("\n");
+							}
+							recentChpTxt.setText(sb.toString());
 						}
 						if (!matched) {
 							pageInfos = null;
@@ -204,13 +213,21 @@ public class OpenComicDialog extends JDialog {
 		getBtn.setBounds(346, 81, 93, 23);
 		contentPanel.add(getBtn);
 
-		lastSectionIdLeb = new JLabel("");
-		lastSectionIdLeb.setBounds(351, 60, 278, 15);
+		lastSectionIdLeb = new JTextField("");
+		lastSectionIdLeb.setBounds(351, 57, 410, 21);
+		lastSectionIdLeb.setEditable(false);
 		contentPanel.add(lastSectionIdLeb);
 
 		comicNameLeb = new JLabel("");
 		comicNameLeb.setBounds(351, 35, 278, 15);
 		contentPanel.add(comicNameLeb);
+		
+		JScrollPane recentChpScr = new JScrollPane();
+		recentChpScr.setBounds(10, 261, 751, 296);
+		contentPanel.add(recentChpScr);
+		
+		recentChpTxt = new JTextArea();
+		recentChpScr.setViewportView(recentChpTxt);
 		{
 			JPanel buttonPane = new JPanel();
 			buttonPane.setLayout(new FlowLayout(FlowLayout.RIGHT));
@@ -285,6 +302,13 @@ public class OpenComicDialog extends JDialog {
 					if (StringUtils.isNotBlank(sections.get(sections.size() - 1).getName())) {
 						lastSectionIdLeb.setText(lastSectionIdLeb.getText() + "(名称：" + sections.get(sections.size() - 1).getName() + ")");
 					}
+					StringBuilder sb = new StringBuilder();
+					for (int i = 0; i < Math.min(sections.size(), 15); i++) {
+						sb.append(
+								sections.get(sections.size() - i - 1).getSectionId() + " - "
+										+ sections.get(sections.size() - i - 1).getName()).append("\n");
+					}
+					recentChpTxt.setText(sb.toString());
 				}
 			}
 			List<PageInfo> pages = pluginEngine.getPages(comicIdTxt.getText(), sectionIdTxt.getText());
