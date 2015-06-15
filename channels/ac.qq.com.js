@@ -26,7 +26,8 @@ function getSections(comicId) {
 	if(comicMatched != null){
 		comicName = comicMatched[1];
 	}
-	var sectionContent = content.substring(content.indexOf("chapter-page-all works-chapter-list"),content.indexOf("works-mov-wr works-stack ui-wm ui-mb40"));
+	var sectionContent = content.substring(content.indexOf("chapter-page-all works-chapter-list"));
+	sectionContent = sectionContent.substring(0,sectionContent.indexOf("</ol>"));
 	var sectionRegex =  new RegExp(" href=\"/ComicView/index/id/\\d+/cid/(\\d+)\">[^<>]+</a>","g");
 	var matched = sectionContent.match(sectionRegex);
 	var sections = [];
