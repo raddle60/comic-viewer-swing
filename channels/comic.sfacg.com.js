@@ -6,7 +6,7 @@ var channel = {
 	home : "http://comic.sfacg.com/",
 	desc : "http://comic.sfacg.com/HTML/OnePiece/730/\nOnePiece是漫画Id\n730是章节Id\n"+
 	"http://comic.sfacg.com/HTML/YJDWB/SP/SP1/\nYJDWB是漫画Id\nSP/SP1是章节Id",
-	index : 1
+	index : 30
 }
 
 /**

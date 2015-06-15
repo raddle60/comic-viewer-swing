@@ -6,7 +6,7 @@ var channel = {
 	home : "http://manhua.fzdm.com/",
 	desc : "http://manhua.fzdm.com/1/\n1是漫画Id\n"+
 	"http://manhua.fzdm.com/1/658/\n1是漫画Id\n658是章节Id",
-	index : 6
+	index : 70
 }
 
 /**

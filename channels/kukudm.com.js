@@ -6,7 +6,7 @@ var channel = {
 	home : "http://kukudm.com/",
 	desc : "http://kukudm.com/comiclist/346/\n346是漫画Id\n"+
 	"http://kukudm.com/comiclist/346/4704/1.htm\n346是漫画Id\n4704是章节Id\n不支持腾讯漫画",
-	index : 4
+	index : 50
 }
 
 /**

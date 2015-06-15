@@ -6,7 +6,7 @@ var channel = {
 	home : "http://manhua.dmzj.com/",
 	desc : "http://manhua.dmzj.com/mowangnaiba/\nmowangnaiba是漫画Id\n"+
 	"http://manhua.dmzj.com/mowangnaiba/21483.shtml\nmowangnaiba是漫画Id\n21483是章节Id\n不支持腾讯漫画",
-	index : 5
+	index : 60
 }
 
 /**

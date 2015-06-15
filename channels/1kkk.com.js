@@ -7,7 +7,7 @@ var channel = {
 	desc : "http://www.1kkk.com/manhua432/\nmanhua432是漫画Id\n"+
 	"http://www.1kkk.com/ch51-145964/\nhttp://www.1kkk.com/t148129/\n" +
 	"ch51-145964,t148129是章节Id",
-	index : 2
+	index : 20
 }
 
 /**

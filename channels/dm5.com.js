@@ -7,7 +7,7 @@ var channel = {
 	desc : "http://www.dm5.com/manhua-haizeiwang-onepiece/\nmanhua-haizeiwang-onepiece是漫画Id\n"+
 	"http://www.dm5.com/m148306/\nhttp://www.dm5.com/t148760/\n" +
 	"m148306,t148760是章节Id",
-	index : 3
+	index : 40
 }
 
 /**
