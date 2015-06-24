@@ -89,6 +89,7 @@ public class ComicViewer {
 	private JMenuItem menuItem_2;
 	private JCheckBoxMenuItem continueViewItem;
 	private ContiueImageHelper contiueImageHelper = new ContiueImageHelper();
+	private JCheckBoxMenuItem suiteWidthMenuItem;
 
 	/**
 	 * Launch the application.
@@ -208,6 +209,7 @@ public class ComicViewer {
 
 		menuItem_2 = new JMenuItem("跳转到...");
 		menuItem_2.addActionListener(new ActionListener() {
+			@Override
 			public void actionPerformed(ActionEvent e) {
 				gotoPage();
 			}
@@ -216,6 +218,7 @@ public class ComicViewer {
 
 		continueViewItem = new JCheckBoxMenuItem("连续显示");
 		continueViewItem.addActionListener(new ActionListener() {
+			@Override
 			public void actionPerformed(ActionEvent e) {
 				ViewConfigHelper.setContinueView(continueViewItem.isSelected());
 				showImage(true);
@@ -223,6 +226,9 @@ public class ComicViewer {
 		});
 		continueViewItem.setSelected(ViewConfigHelper.getIsContinueView());
 		menu_2.add(continueViewItem);
+		
+		suiteWidthMenuItem = new JCheckBoxMenuItem("适合高度");
+		menu_2.add(suiteWidthMenuItem);
 
 		menu_1 = new JMenu("帮助");
 		menuBar.add(menu_1);
@@ -448,11 +454,17 @@ public class ComicViewer {
 								if (continueViewItem.isSelected()) {
 									contiueImageHelper.changePage(pageNo);
 									complexImage = contiueImageHelper.getCompositeImage();
+									if(suiteWidthMenuItem.isSelected()){
+										scaleToHeight();
+									}
 									movePic(0, 0);
 									picPane.repaint();
 								} else {
 									complexImage = loadImage(pageInfo);
 									if (complexImage != null) {
+										if(suiteWidthMenuItem.isSelected()){
+											scaleToHeight();
+										}
 										picStartPoint = new Point();
 										if (isNextPage) {
 											// 下一页从右上角开始
@@ -683,6 +695,12 @@ public class ComicViewer {
 				JOptionPane.showMessageDialog(null, "没有打开的漫画");
 			}
 		}
+	}
+
+	private void scaleToHeight() {
+		double heightRadio = (double)complexImage.getHeight(null)/picPane.getHeight();
+		int scaledWidth = (int) (complexImage.getWidth(null)/heightRadio);
+		complexImage = complexImage.getScaledInstance(scaledWidth, picPane.getHeight(), Image.SCALE_SMOOTH);
 	}
 
 	private class ContiueImageHelper {
