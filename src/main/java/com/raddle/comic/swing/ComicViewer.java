@@ -228,6 +228,13 @@ public class ComicViewer {
 		menu_2.add(continueViewItem);
 		
 		suiteWidthMenuItem = new JCheckBoxMenuItem("适合高度");
+		suiteWidthMenuItem.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				ViewConfigHelper.setFitHeigthView(suiteWidthMenuItem.isSelected());
+			}
+		});
+		suiteWidthMenuItem.setSelected(ViewConfigHelper.getIsFitHeigthView());
 		menu_2.add(suiteWidthMenuItem);
 
 		menu_1 = new JMenu("帮助");

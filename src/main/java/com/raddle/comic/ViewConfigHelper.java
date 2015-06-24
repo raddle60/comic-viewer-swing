@@ -53,5 +53,14 @@ public class ViewConfigHelper {
 	public static boolean getIsContinueView() {
 		return config.getBoolean("view.isContinueView", false);
 	}
+	
+	public static void setFitHeigthView(boolean isFitHeigthView) {
+		config.setProperty("view.isFitHeigthView", isFitHeigthView + "");
+		save();
+	}
+
+	public static boolean getIsFitHeigthView() {
+		return config.getBoolean("view.isFitHeigthView", false);
+	}
 
 }
