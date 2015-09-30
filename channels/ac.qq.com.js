@@ -57,7 +57,7 @@ function getPages(comicId, sectionId) {
 		var qqcontent = httpclient.getRemotePage("http://ac.qq.com/ComicView/index/id/"+comicId+"/cid/"+sectionId, "utf-8", {
 			"Referer" : "http://ac.qq.com/Comic/comicInfo/id/"+comicId
 		});
-		var dataJs = qqcontent.match(new RegExp("var DATA = '(.+)',"));
+		var dataJs = qqcontent.match(new RegExp("var DATA\\s+= '(.+)',"));
 		var images = getImageUrls(dataJs[1]);
 		for ( var i = 0; i < images.length; i++) {
 			pages.push({
