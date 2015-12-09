@@ -19,28 +19,55 @@ function getSections(comicId) {
 	var content = httpclient.getRemotePage("http://ac.qq.com/Comic/comicInfo/id/" + comicId + "/", "utf-8", {
 		"Referer" : "http://ac.qq.com/"
 	});
-	var comicNameStrong = content.substring(content.indexOf("works-intro-title ui-left"),content.indexOf("works-score clearfix"));
-	var comicNameRegex = new RegExp("<strong>([^<>]+)</strong>");
 	var comicName = "";
-	var comicMatched = comicNameStrong.match(comicNameRegex);
-	if(comicMatched != null){
-		comicName = comicMatched[1];
-	}
-	var sectionContent = content.substring(content.indexOf("chapter-page-all works-chapter-list"));
-	sectionContent = sectionContent.substring(0,sectionContent.indexOf("</ol>"));
-	var sectionRegex =  new RegExp(" href=\"/ComicView/index/id/\\d+/cid/(\\d+)\">[^<>]+</a>","g");
-	var matched = sectionContent.match(sectionRegex);
-	var sections = [];
-	if(matched != null && matched.length > 0){
-		for ( var i = 0; i < matched.length; i++) {
-			var sectionId = matched[i].match(new RegExp("href=\"/ComicView/index/id/\\d+/cid/(\\d+)\""))[1];
-			var sectionName = matched[i].match(/\">([^<>]+)</)[1];
-			sections.push({
-				sectionId : sectionId,
-				name : sectionName
-			});
+	if(content.indexOf("works-intro-title ui-left")!=-1){
+		var comicNameStrong = content.substring(content.indexOf("works-intro-title ui-left"),content.indexOf("works-score clearfix"));
+		var comicNameRegex = new RegExp("<strong>([^<>]+)</strong>");
+		var comicMatched = comicNameStrong.match(comicNameRegex);
+		if(comicMatched != null){
+			comicName = comicMatched[1];
+		}
+	} else {
+		var pageTitleRegex = new RegExp("<title>([^<>]+)</title>");
+		var comicMatched = content.match(pageTitleRegex);
+		if(comicMatched != null){
+			comicName = comicMatched[1];
 		}
 	}
+	var sections = [];
+	if(content.indexOf("chapter-page-all works-chapter-list") != -1){
+		var sectionContent = content.substring(content.indexOf("chapter-page-all works-chapter-list"));
+		sectionContent = sectionContent.substring(0,sectionContent.indexOf("</ol>"));
+		var sectionRegex =  new RegExp(" href=\"/ComicView/index/id/\\d+/cid/(\\d+)\">[^<>]+</a>","g");
+		var matched = sectionContent.match(sectionRegex);
+		if(matched != null && matched.length > 0){
+			for ( var i = 0; i < matched.length; i++) {
+				var sectionId = matched[i].match(new RegExp("href=\"/ComicView/index/id/\\d+/cid/(\\d+)\""))[1];
+				var sectionName = matched[i].match(/\">([^<>]+)</)[1];
+				sections.push({
+					sectionId : sectionId,
+					name : sectionName
+				});
+			}
+		}
+	} else if(content.indexOf("chapter-list-content") != -1){
+		var sectionContent = content.substring(content.indexOf("chapter-list-content"));
+		sectionContent = sectionContent.substring(0,sectionContent.indexOf("foot-wrap"));
+		var sectionRegex =  new RegExp(" href=\"/ComicView/index/id/\\d+/cid/(\\d+)\"><span>[^<>]+</span>","g");
+		var matched = sectionContent.match(sectionRegex);
+		if(matched != null && matched.length > 0){
+			for ( var i = 0; i < matched.length; i++) {
+				var sectionId = matched[i].match(new RegExp("href=\"/ComicView/index/id/\\d+/cid/(\\d+)\""))[1];
+				var sectionName = matched[i].match(/<span>([^<>]+)<\/span>/)[1];
+				sections.push({
+					sectionId : sectionId,
+					name : sectionName
+				});
+			}
+		}
+	}
+
+
 	return {
 		comicName : comicName,
 		sections :  sections
