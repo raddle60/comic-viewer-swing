@@ -751,20 +751,25 @@ public class ComicViewer {
 			}
 		}
 
-		public int getCurPageNo() {
-			if (imageQueue.size() == 0) {
-				return pageNo;
-			}
-			int curY = 0;
-			int posY = Math.abs(picStartPoint.y);
-			for (ImageInfo imageInfo : imageQueue) {
-				curY = curY + imageInfo.height + intervalHeight;
-				if (curY > posY) {
-					return imageInfo.pageNo;
-				}
-			}
-			return imageQueue.getLast().pageNo;
-		}
+        public int getCurPageNo() {
+            if (imageQueue.size() == 0) {
+                return pageNo;
+            }
+            int curY = 0;
+            int posY = Math.abs(picStartPoint.y);
+            for (ImageInfo imageInfo : imageQueue) {
+                curY = curY + imageInfo.height + intervalHeight;
+                if (picPane.getHeight() > imageInfo.height + intervalHeight) {
+                    int less = picPane.getHeight() - imageInfo.height + intervalHeight;
+                    if (curY > posY + less) {
+                        return imageInfo.pageNo;
+                    }
+                } else if (curY > posY) {
+                    return imageInfo.pageNo;
+                }
+            }
+            return imageQueue.getLast().pageNo;
+        }
 
 		public Image getCompositeImage() {
 			// 合并图片
