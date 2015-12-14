@@ -4,6 +4,7 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.EventQueue;
+import java.awt.Font;
 import java.awt.Frame;
 import java.awt.Graphics;
 import java.awt.GraphicsDevice;
@@ -263,6 +264,7 @@ public class ComicViewer {
 					// 全屏显示页
 					if (isFullScreen && !continueViewItem.isSelected()) {
 						g.setXORMode(Color.WHITE);
+                        g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 15));
 						g.drawString(pageNo + "/" + pageMap.size(), this.getWidth() - 50, this.getHeight() - 10);
 						g.drawString(StringUtils.defaultString(sectionName, sectionId), 20, this.getHeight() - 10);
 					}
@@ -789,9 +791,8 @@ public class ComicViewer {
 			for (ImageInfo imageInfo : imageQueue) {
 				graphics.setColor(Color.BLACK);
 				graphics.drawImage(imageInfo.image, (int) Math.round(((width - imageInfo.width) / 2.0)), curY, null);
-				graphics.setXORMode(Color.WHITE);
-				graphics.drawString(imageInfo.pageNo + "/" + pageMap.size(), width - 50, curY + imageInfo.height - 10);
-				graphics.setXORMode(Color.BLACK);
+				graphics.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 24));
+				graphics.drawString(imageInfo.pageNo + "/" + pageMap.size(), width - 80, curY + imageInfo.height - 10);
 				curY = curY + imageInfo.height + pageIntervalHeight;
 			}
 			graphics.dispose();
