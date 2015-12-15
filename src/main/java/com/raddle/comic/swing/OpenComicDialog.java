@@ -173,7 +173,7 @@ public class OpenComicDialog extends JDialog {
 								lastSectionIdLeb.setText(lastSectionIdLeb.getText() + "(名称：" + sections.get(sections.size() - 1).getName() + ")");
 							}
 							StringBuilder sb = new StringBuilder();
-							for (int i = 0; i < Math.min(sections.size(), 15); i++) {
+							for (int i = 0; i < Math.min(sections.size(), 12); i++) {
 								sb.append(
 										sections.get(sections.size() - i - 1).getSectionId() + " - "
 												+ sections.get(sections.size() - i - 1).getName()).append("\n");
