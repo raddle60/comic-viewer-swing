@@ -91,6 +91,7 @@ public class ComicViewer {
 	private JCheckBoxMenuItem continueViewItem;
 	private ContiueImageHelper contiueImageHelper = new ContiueImageHelper();
 	private JCheckBoxMenuItem suiteWidthMenuItem;
+	private Map<String,String> comicUpdate = new HashMap<String, String>();
 
 	/**
 	 * Launch the application.
@@ -161,7 +162,7 @@ public class ComicViewer {
 						if (recentViews.get(0).getTime() > component.getViewInfo().getTime()) {
 							recentViewmenu.removeAll();
 							for (RecentViewInfo recentViewInfo : recentViews) {
-								final RecentViewMenuItem recentItem = new RecentViewMenuItem(recentViewInfo);
+                                final RecentViewMenuItem recentItem = new RecentViewMenuItem(recentViewInfo, comicUpdate);
 								recentItem.addActionListener(new ActionListener() {
 									@Override
 									public void actionPerformed(ActionEvent e) {
@@ -179,7 +180,7 @@ public class ComicViewer {
 					recentViewmenu.removeAll();
 					List<RecentViewInfo> recentViews = RecentViewHelper.getRecentViews();
 					for (RecentViewInfo recentViewInfo : recentViews) {
-						final RecentViewMenuItem recentItem = new RecentViewMenuItem(recentViewInfo);
+                        final RecentViewMenuItem recentItem = new RecentViewMenuItem(recentViewInfo, comicUpdate);
 						recentItem.addActionListener(new ActionListener() {
 							@Override
 							public void actionPerformed(ActionEvent e) {
@@ -401,7 +402,37 @@ public class ComicViewer {
 		});
 		//
 		picPane.setCursor(new Cursor(Cursor.HAND_CURSOR));
-	}
+		// 检查漫画更新
+        new Thread(new Runnable() {
+
+            @Override
+            public void run() {
+                List<RecentViewInfo> recentViews = RecentViewHelper.getRecentViews();
+                for (RecentViewInfo recentViewInfo : recentViews) {
+                    comicUpdate.put(recentViewInfo.getComicId(), "updating");
+                    ComicPluginEngine updateSessionEngine = null;
+                    try {
+                        updateSessionEngine = new ComicPluginEngine();
+                        List<ChannelInfo> channelList = ComicPluginEngine.getChannelList(new File("channels"));
+                        for (ChannelInfo channelInfo : channelList) {
+                            if (FilenameUtils.getName(recentViewInfo.getChannelPath()).equals(channelInfo.getScriptFile().getName())) {
+                                updateSessionEngine.init(channelInfo.getScriptFile());
+                                break;
+                            }
+                        }
+                        ComicInfo comicInfo = updateSessionEngine.getSections(recentViewInfo.getComicId());
+                        comicUpdate.put(recentViewInfo.getComicId(), comicInfo.getSections().get(comicInfo.getSections().size() - 1).getSectionId());
+                    } catch (Exception e) {
+                        comicUpdate.put(recentViewInfo.getComicId(), "failed: " + StringUtils.defaultIfEmpty(e.getMessage(), e.getClass().getSimpleName()));
+                    } finally {
+                        if (updateSessionEngine != null) {
+                            updateSessionEngine.close();
+                        }
+                    }
+                }
+            }
+        }, "check-comic-update").start();
+    }
 
 	private void movePic(int changedX, int changedY) {
 		if (complexImage != null) {
@@ -625,19 +656,7 @@ public class ComicViewer {
 
 	private void openComic() {
 		if (openComicDialog.getPageInfo() != null && openComicDialog.getPageInfo().size() > 0) {
-			// 清理掉以前的引擎
-			if (picEngine != null) {
-				picEngine.close();
-				picEngine = null;
-			}
-			try {
-				picEngine = new ComicPluginEngine();
-				picEngine.init(openComicDialog.getChannelInfo().getScriptFile());
-			} catch (IOException e1) {
-				logger.log(e1.getMessage(), e1);
-				JOptionPane.showMessageDialog(null, "打开脚本失败," + e1.getMessage());
-				return;
-			}
+			initPicEngine(openComicDialog.getChannelInfo().getScriptFile());
 			pageMap.clear();
 			for (PageInfo pageInfo : openComicDialog.getPageInfo()) {
 				pageMap.put(pageInfo.getPageNo(), pageInfo);
@@ -712,7 +731,23 @@ public class ComicViewer {
 		complexImage = complexImage.getScaledInstance(scaledWidth, picPane.getHeight(), Image.SCALE_SMOOTH);
 	}
 
-	private class ContiueImageHelper {
+	private void initPicEngine(File scriptFile) {
+        // 清理掉以前的引擎
+        if (picEngine != null) {
+            picEngine.close();
+            picEngine = null;
+        }
+        try {
+            picEngine = new ComicPluginEngine();
+            picEngine.init(scriptFile);
+        } catch (IOException e1) {
+            logger.log(e1.getMessage(), e1);
+            JOptionPane.showMessageDialog(null, "打开脚本失败," + e1.getMessage());
+            return;
+        }
+    }
+
+    private class ContiueImageHelper {
 		private Deque<ImageInfo> imageQueue = new LinkedList<ComicViewer.ImageInfo>();
 		private int intervalHeight = 5;
 
