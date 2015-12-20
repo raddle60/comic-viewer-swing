@@ -44,7 +44,7 @@ function getSections(comicId) {
 			for ( var i = 0; i < matched.length; i++) {
 				var sectionId = matched[i].match(new RegExp("href=\"/ComicView/index/id/\\d+/cid/(\\d+)\""))[1];
 				var sectionName = matched[i].match(/\">([^<>]+)</)[1];
-				sections.push({
+				addSections(sections,{
 					sectionId : sectionId,
 					name : sectionName
 				});
@@ -59,7 +59,7 @@ function getSections(comicId) {
 			for ( var i = 0; i < matched.length; i++) {
 				var sectionId = matched[i].match(new RegExp("href=\"/ComicView/index/id/\\d+/cid/(\\d+)\""))[1];
 				var sectionName = matched[i].match(/<span>([^<>]+)<\/span>/)[1];
-				sections.push({
+				addSections(sections,{
 					sectionId : sectionId,
 					name : sectionName
 				});
@@ -72,6 +72,19 @@ function getSections(comicId) {
 		comicName : comicName,
 		sections :  sections
 	};
+}
+
+function addSections(sections, newSession){
+	var exist = false;
+	for ( var i = 0; i < sections.length; i++) {
+		if(sections[i].sectionId == newSession.sectionId){
+			exist = true;
+			break;
+		}
+	}
+	if(!exist){
+		sections.push(newSession);
+	}
 }
 
 /**
