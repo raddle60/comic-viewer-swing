@@ -5,6 +5,8 @@ package com.raddle.comic.engine;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -12,6 +14,7 @@ import java.util.Comparator;
 import java.util.List;
 
 import org.apache.commons.io.FileUtils;
+import org.jsoup.Jsoup;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.Function;
 import org.mozilla.javascript.NativeArray;
@@ -21,13 +24,16 @@ import org.mozilla.javascript.ScriptableObject;
 import org.slf4j.LoggerFactory;
 
 import com.raddle.comic.LogWrapper;
+import com.raddle.comic.engine.dom.DomDocument;
 
 /**
  * @author raddle
- * 
+ *
  */
 public class ComicPluginEngine {
 	private static LogWrapper logger = new LogWrapper(LoggerFactory.getLogger(ComicPluginEngine.class));
+	/** DOM 辅助脚本，提供 parseHtml 等全局函数 */
+	private static final String DOM_SCRIPT = "/dom.js";
 	private Scriptable topScope;
 	private File pluginFile;
 
@@ -43,25 +49,57 @@ public class ComicPluginEngine {
 		ScriptableObject.putProperty(topScope, "log", LoggerFactory.getLogger("ChannelJs"));
 		ScriptableObject.putProperty(topScope, "httpclient", new HttpHelper());
 		ScriptableObject.putProperty(topScope, "engine", this);
+		loadDomScript(context);
 		this.pluginFile = pluginFile;
 		context.evaluateString(topScope, FileUtils.readFileToString(pluginFile, "utf-8"), "<" + pluginFile.getName() + ">", 1, null);
 	}
+
+	/**
+	 * 把 DOM 辅助脚本注入 scope，脚本里可以直接用 parseHtml(html)
+	 */
+	private void loadDomScript(Context context) {
+		InputStream inputStream = ComicPluginEngine.class.getResourceAsStream(DOM_SCRIPT);
+		if (inputStream == null) {
+			logger.log("dom script not found: {}", DOM_SCRIPT);
+			return;
+		}
+		try {
+			context.evaluateReader(topScope, new InputStreamReader(inputStream, "utf-8"), "<dom.js>", 1, null);
+		} catch (IOException e) {
+			logger.log("load dom script error", e);
+		} finally {
+			try {
+				inputStream.close();
+			} catch (IOException e) {
+				// 忽略
+			}
+		}
+	}
+
+	/**
+	 * 解析 HTML，返回可以按 CSS 选择器查询的文档对象。
+	 *
+	 * @param html 网页内容
+	 * @return 文档对象，用法：doc.select("div.list a")、doc.query("title")
+	 */
+	public DomDocument parseHtml(String html) {
+		if (html == null) {
+			return null;
+		}
+		return new DomDocument(Jsoup.parse(html));
+	}
+
 
 	public ChannelInfo getChannelInfo() {
 		NativeObject channelObj = (NativeObject) topScope.get("channel", topScope);
 		ChannelInfo channelInfo = new ChannelInfo();
 		if (channelObj != null && channelObj != Scriptable.NOT_FOUND) {
-			if (channelObj.get("name", topScope) != null && channelObj.get("name", topScope) != Scriptable.NOT_FOUND) {
-				channelInfo.setName((String) channelObj.get("name", topScope));
-			}
-			if (channelObj.get("home", topScope) != null && channelObj.get("home", topScope) != Scriptable.NOT_FOUND) {
-				channelInfo.setHome((String) channelObj.get("home", topScope));
-			}
-			if (channelObj.get("desc", topScope) != null && channelObj.get("desc", topScope) != Scriptable.NOT_FOUND) {
-				channelInfo.setDesc((String) channelObj.get("desc", topScope));
-			}
-			if (channelObj.get("index", topScope) != null && channelObj.get("index", topScope) != Scriptable.NOT_FOUND) {
-				channelInfo.setIndex(((Number) channelObj.get("index", topScope)).intValue());
+			channelInfo.setName(asString(channelObj.get("name", topScope)));
+			channelInfo.setHome(asString(channelObj.get("home", topScope)));
+			channelInfo.setDesc(asString(channelObj.get("desc", topScope)));
+			Object index = channelObj.get("index", topScope);
+			if (index != null && index != Scriptable.NOT_FOUND) {
+				channelInfo.setIndex(((Number) index).intValue());
 			}
 		}
 		if (channelInfo.getName() != null) {
@@ -70,6 +108,18 @@ public class ComicPluginEngine {
 			logger.log("missing var channel in file[{}]", pluginFile);
 		}
 		return null;
+	}
+
+	/**
+	 * 取 JS 里的字符串值。
+	 * Rhino 拼接出来的字符串是 ConsString，不是 java.lang.String，直接强转会出错，
+	 * 所以这里统一用 Context.toString 转换。
+	 */
+	private static String asString(Object value) {
+		if (value == null || value == Scriptable.NOT_FOUND) {
+			return null;
+		}
+		return Context.toString(value);
 	}
 
 	public ComicInfo getSections(String comicId) {
@@ -88,19 +138,15 @@ public class ComicPluginEngine {
 				if (object instanceof NativeObject) {
 					NativeObject o = (NativeObject) object;
 					SectionInfo info = new SectionInfo();
-					if (o.get("sectionId", topScope) != null && o.get("sectionId", topScope) != Scriptable.NOT_FOUND) {
-						info.setSectionId(o.get("sectionId", topScope) + "");
-					}
-					if (o.get("name", topScope) != null && o.get("name", topScope) != Scriptable.NOT_FOUND) {
-						info.setName(o.get("name", topScope) + "");
-					}
+					info.setSectionId(asString(o.get("sectionId", topScope)));
+					info.setName(asString(o.get("name", topScope)));
 					sectionInfos.add(info);
 				}
 			}
 			comicInfo.setSections(sectionInfos);
 		}
 		if (result.get("comicName") != null && result.get("comicName") != Scriptable.NOT_FOUND) {
-			comicInfo.setComicName((String) result.get("comicName"));
+			comicInfo.setComicName(asString(result.get("comicName", topScope)));
 		}
 		return comicInfo;
 	}
@@ -120,10 +166,10 @@ public class ComicPluginEngine {
 						info.setPageNo(new Double(o.get("pageNo", topScope) + "").intValue());
 					}
 					if (o.get("filename", topScope) != null && o.get("filename", topScope) != Scriptable.NOT_FOUND) {
-						info.setFilename(o.get("filename", topScope) + "");
+						info.setFilename(asString(o.get("filename", topScope)));
 					}
 					if (o.get("pageUrl", topScope) != null && o.get("pageUrl", topScope) != Scriptable.NOT_FOUND) {
-						info.setPageUrl(o.get("pageUrl", topScope) + "");
+						info.setPageUrl(asString(o.get("pageUrl", topScope)));
 					}
 					pageInfos.add(info);
 				}
