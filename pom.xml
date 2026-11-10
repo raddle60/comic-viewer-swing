@@ -89,6 +89,12 @@
 			<version>1.17.2</version>
 		</dependency>
 		<dependency>
+			<!-- WebP 解码，JDK 自带的 ImageIO 不支持 webp -->
+			<groupId>com.twelvemonkeys.imageio</groupId>
+			<artifactId>imageio-webp</artifactId>
+			<version>3.11.0</version>
+		</dependency>
+		<dependency>
 			<groupId>commons-configuration</groupId>
 			<artifactId>commons-configuration</artifactId>
 			<version>1.10</version>

@@ -65,6 +65,10 @@ public class HttpHelper {
 	}
 
 	public static void saveRemotePage(String url, Map<Object, Object> headers, File file) throws IOException {
+		File parentFile = file.getParentFile();
+		if (parentFile != null && !parentFile.exists()) {
+			parentFile.mkdirs();
+		}
 		HttpGet httpGet = new HttpGet(url);
 		if (headers != null) {
 			for (Map.Entry<Object, Object> entry : headers.entrySet()) {
