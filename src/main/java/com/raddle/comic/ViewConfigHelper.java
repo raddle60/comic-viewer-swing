@@ -63,6 +63,15 @@ public class ViewConfigHelper {
 		return config.getBoolean("view.isSeamlessView", false);
 	}
 
+	public static void setContinuousDownload(boolean isContinuousDownload) {
+		config.setProperty("view.isContinuousDownload", isContinuousDownload + "");
+		save();
+	}
+
+	public static boolean getIsContinuousDownload() {
+		return config.getBoolean("view.isContinuousDownload", false);
+	}
+
 	public static void setFitHeigthView(boolean isFitHeigthView) {
 		config.setProperty("view.isFitHeigthView", isFitHeigthView + "");
 		save();

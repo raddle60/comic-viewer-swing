@@ -3,6 +3,7 @@ package com.raddle.comic.swing;
 import java.awt.Image;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.junit.Assert;
@@ -193,6 +194,67 @@ public class ContinuousScrollModelTest {
 		model.preload();
 		Thread.sleep(200);
 		Assert.assertTrue("用户移动图片后应该重试一次", count(requested, 2) > before);
+	}
+
+	@Test
+	public void 连续下载会把本章都下完() throws Exception {
+		final List<Integer> requested = Collections.synchronizedList(new ArrayList<Integer>());
+		ContinuousScrollModel model = new ContinuousScrollModel(PAGE_COUNT, new ContinuousScrollModel.PageLoader() {
+			@Override
+			public Image load(int pageNo) throws Exception {
+				requested.add(pageNo);
+				return new BufferedImage(PAGE_WIDTH, PAGE_HEIGHT, BufferedImage.TYPE_INT_RGB);
+			}
+		}, null);
+		model.setContinuousDownload(true);
+		model.reset(1);
+		model.loadPage(1);
+
+		for (int i = 0; i < 300 && requested.size() < PAGE_COUNT; i++) {
+			Thread.sleep(20);
+		}
+		Assert.assertEquals("应该把本章剩下的页都下完", PAGE_COUNT, requested.size());
+	}
+
+	@Test
+	public void 连续下载出错就停下来() throws Exception {
+		final List<Integer> requested = Collections.synchronizedList(new ArrayList<Integer>());
+		ContinuousScrollModel model = new ContinuousScrollModel(PAGE_COUNT, new ContinuousScrollModel.PageLoader() {
+			@Override
+			public Image load(int pageNo) throws Exception {
+				requested.add(pageNo);
+				if (pageNo >= 3) {
+					throw new java.io.IOException("下载失败");
+				}
+				return new BufferedImage(PAGE_WIDTH, PAGE_HEIGHT, BufferedImage.TYPE_INT_RGB);
+			}
+		}, null);
+		model.setContinuousDownload(true);
+		model.reset(1);
+		model.loadPage(1);
+
+		for (int i = 0; i < 300 && requested.size() < 3; i++) {
+			Thread.sleep(20);
+		}
+		Thread.sleep(300);
+		Assert.assertEquals("出错后不该再继续下载", 3, requested.size());
+		Assert.assertNotNull("出错应该有提示", model.getFailedReason());
+	}
+
+	@Test
+	public void 没勾连续下载就不会接着下载() throws Exception {
+		final List<Integer> requested = Collections.synchronizedList(new ArrayList<Integer>());
+		ContinuousScrollModel model = new ContinuousScrollModel(PAGE_COUNT, new ContinuousScrollModel.PageLoader() {
+			@Override
+			public Image load(int pageNo) throws Exception {
+				requested.add(pageNo);
+				return new BufferedImage(PAGE_WIDTH, PAGE_HEIGHT, BufferedImage.TYPE_INT_RGB);
+			}
+		}, null);
+		model.reset(1);
+		model.loadPage(1);
+		Thread.sleep(300);
+		Assert.assertEquals("不该接着下载", 1, requested.size());
 	}
 
 	@Test

@@ -128,6 +128,7 @@ public class ComicViewer {
 	});
 	private JCheckBoxMenuItem suiteWidthMenuItem;
 	private JCheckBoxMenuItem seamlessViewItem;
+	private JCheckBoxMenuItem continuousDownloadItem;
 	private Map<String,String> comicUpdate = new HashMap<String, String>();
 
 	/**
@@ -280,6 +281,19 @@ public class ComicViewer {
 		seamlessViewItem.setSelected(ViewConfigHelper.getIsSeamlessView());
 		continueModel.setSeamless(seamlessViewItem.isSelected());
 		menu_2.add(seamlessViewItem);
+
+		continuousDownloadItem = new JCheckBoxMenuItem("连续下载");
+		continuousDownloadItem.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				ViewConfigHelper.setContinuousDownload(continuousDownloadItem.isSelected());
+				continueModel.setContinuousDownload(continuousDownloadItem.isSelected());
+				updateContinueTitle();
+			}
+		});
+		continuousDownloadItem.setSelected(ViewConfigHelper.getIsContinuousDownload());
+		continueModel.setContinuousDownload(continuousDownloadItem.isSelected());
+		menu_2.add(continuousDownloadItem);
 		
 		suiteWidthMenuItem = new JCheckBoxMenuItem("适合高度");
 		suiteWidthMenuItem.addActionListener(new ActionListener() {
@@ -895,6 +909,7 @@ public class ComicViewer {
 				}
 			});
 			continueModel.setSeamless(seamlessViewItem.isSelected());
+			continueModel.setContinuousDownload(continuousDownloadItem.isSelected());
 			showImage(true);
 		}
 	}

@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.slf4j.LoggerFactory;
 
@@ -80,6 +81,10 @@ class ContinuousScrollModel {
 	private final Map<Integer, Page> pageCache = new ConcurrentHashMap<Integer, Page>();
 	/** 正在加载中的页，避免重复请求 */
 	private final Set<Integer> loadingPages = ConcurrentHashMap.newKeySet();
+	/** 连续下载：勾选后下载完一页接着下载下一页 */
+	private volatile boolean continuousDownload = false;
+	/** 连续下载的线程是否已经在跑了，避免起多条链 */
+	private final AtomicBoolean continuousDownloading = new AtomicBoolean(false);
 	/** 加载失败的页和失败原因 */
 	private final Map<Integer, String> failedPages = new ConcurrentHashMap<Integer, String>();
 
@@ -338,6 +343,8 @@ class ContinuousScrollModel {
 				// 页放进缓存了，让界面重画一下
 				onPageLoaded.run();
 			}
+			// 连续下载：这一页下完了接着下下一页
+			startContinuousDownload(pageNo + 1);
 			return page;
 		} catch (Exception e) {
 			logger.log(e.getMessage(), e);
@@ -386,6 +393,85 @@ class ContinuousScrollModel {
 	/** 有没有页正在加载 */
 	boolean isLoading() {
 		return !loadingPages.isEmpty();
+	}
+
+	/**
+	 * 设置连续下载。勾选后，远程下载完一页会接着下载下一页，
+	 * 直到本章下载完或者中途出错。
+	 */
+	void setContinuousDownload(boolean continuousDownload) {
+		this.continuousDownload = continuousDownload;
+	}
+
+	/**
+	 * 连续下载：从 fromPage 开始接着往下下，一直下到本章最后一页。
+	 * 中途出错就停下来，把错误交给界面提示。
+	 */
+	private void startContinuousDownload(int fromPage) {
+		if (!continuousDownload || fromPage > pageCount) {
+			return;
+		}
+		if (!continuousDownloading.compareAndSet(false, true)) {
+			// 已经有一条链在跑了，不用再起一条
+			return;
+		}
+		new Thread(new Runnable() {
+			@Override
+			public void run() {
+				try {
+					for (int pageNo = fromPage; pageNo <= pageCount; pageNo++) {
+						if (!continuousDownload) {
+							// 用户把连续下载关掉了
+							break;
+						}
+						if (!loadingPages.add(pageNo)) {
+							// 别的线程正在下这一页，跳过
+							continue;
+						}
+						boolean ok;
+						try {
+							ok = downloadPage(pageNo);
+						} finally {
+							loadingPages.remove(pageNo);
+						}
+						if (!ok) {
+							// 出错了，停下来，错误信息界面上会显示
+							break;
+						}
+					}
+				} finally {
+					continuousDownloading.set(false);
+				}
+			}
+		}, "continuous-download").start();
+	}
+
+	/**
+	 * 连续下载用：把这一页下到磁盘缓存里，但不留在内存中。
+	 * 整章图片都留在内存里太占地方了，之后翻到这页再从磁盘读就行。
+	 *
+	 * @return 下载成功返回true，失败返回false
+	 */
+	private boolean downloadPage(int pageNo) {
+		if (pageCache.containsKey(pageNo)) {
+			// 内存里已经有了，不用再下
+			return true;
+		}
+		try {
+			Image image = loader.load(pageNo);
+			if (image == null) {
+				failedPages.put(pageNo, "图片下载失败");
+				notifyPageChanged();
+				return false;
+			}
+			failedPages.remove(pageNo);
+			return true;
+		} catch (Exception e) {
+			logger.log(e.getMessage(), e);
+			failedPages.put(pageNo, shortReason(e));
+			notifyPageChanged();
+			return false;
+		}
 	}
 
 	/**
