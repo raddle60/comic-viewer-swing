@@ -53,7 +53,16 @@ public class ViewConfigHelper {
 	public static boolean getIsContinueView() {
 		return config.getBoolean("view.isContinueView", false);
 	}
-	
+
+	public static void setSeamlessView(boolean isSeamlessView) {
+		config.setProperty("view.isSeamlessView", isSeamlessView + "");
+		save();
+	}
+
+	public static boolean getIsSeamlessView() {
+		return config.getBoolean("view.isSeamlessView", false);
+	}
+
 	public static void setFitHeigthView(boolean isFitHeigthView) {
 		config.setProperty("view.isFitHeigthView", isFitHeigthView + "");
 		save();

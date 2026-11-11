@@ -196,6 +196,34 @@ public class ContinuousScrollModelTest {
 	}
 
 	@Test
+	public void 默认页与页之间有间隔() {
+		ContinuousScrollModel model = new ContinuousScrollModel(PAGE_COUNT, loader(), null);
+		model.reset(1);
+		model.loadPage(1);
+		model.loadPage(2);
+		// 窗口要够高才能同时看到两页
+		List<ContinuousScrollModel.VisiblePage> visible = model.getVisiblePages(PANE_WIDTH, PAGE_HEIGHT * 3, 0);
+		Assert.assertTrue(visible.size() >= 2);
+		Assert.assertEquals("两页之间应该有间隔", visible.get(0).y + PAGE_HEIGHT + ContinuousScrollModel.INTERVAL_HEIGHT,
+				visible.get(1).y);
+	}
+
+	@Test
+	public void 无缝显示时页与页之间没有间隔() {
+		ContinuousScrollModel model = new ContinuousScrollModel(PAGE_COUNT, loader(), null);
+		model.reset(1);
+		model.loadPage(1);
+		model.loadPage(2);
+		model.setSeamless(true);
+		Assert.assertEquals(0, model.getIntervalHeight());
+		// 窗口要够高才能同时看到两页
+		List<ContinuousScrollModel.VisiblePage> visible = model.getVisiblePages(PANE_WIDTH, PAGE_HEIGHT * 3, 0);
+		Assert.assertTrue(visible.size() >= 2);
+		// 一页的底部就是下一页的顶部，中间不留空
+		Assert.assertEquals("两页之间不该有间隔", visible.get(0).y + PAGE_HEIGHT, visible.get(1).y);
+	}
+
+	@Test
 	public void 窗口比图片宽时居中显示() {
 		ContinuousScrollModel model = new ContinuousScrollModel(PAGE_COUNT, loader(), null);
 		model.reset(1);

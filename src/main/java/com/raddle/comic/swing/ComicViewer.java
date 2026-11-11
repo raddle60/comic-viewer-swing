@@ -127,6 +127,7 @@ public class ComicViewer {
 		}
 	});
 	private JCheckBoxMenuItem suiteWidthMenuItem;
+	private JCheckBoxMenuItem seamlessViewItem;
 	private Map<String,String> comicUpdate = new HashMap<String, String>();
 
 	/**
@@ -264,6 +265,21 @@ public class ComicViewer {
 		});
 		continueViewItem.setSelected(ViewConfigHelper.getIsContinueView());
 		menu_2.add(continueViewItem);
+
+		seamlessViewItem = new JCheckBoxMenuItem("无缝显示");
+		seamlessViewItem.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				ViewConfigHelper.setSeamlessView(seamlessViewItem.isSelected());
+				continueModel.setSeamless(seamlessViewItem.isSelected());
+				if (continueViewItem.isSelected() && pageMap.size() > 0) {
+					picPane.repaint();
+				}
+			}
+		});
+		seamlessViewItem.setSelected(ViewConfigHelper.getIsSeamlessView());
+		continueModel.setSeamless(seamlessViewItem.isSelected());
+		menu_2.add(seamlessViewItem);
 		
 		suiteWidthMenuItem = new JCheckBoxMenuItem("适合高度");
 		suiteWidthMenuItem.addActionListener(new ActionListener() {
@@ -878,6 +894,7 @@ public class ComicViewer {
 					});
 				}
 			});
+			continueModel.setSeamless(seamlessViewItem.isSelected());
 			showImage(true);
 		}
 	}

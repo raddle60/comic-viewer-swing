@@ -25,6 +25,8 @@ class ContinuousScrollModel {
 
 	/** 页与页之间的间隔 */
 	static final int INTERVAL_HEIGHT = 5;
+	/** 实际用的间隔，"无缝显示"时为0 */
+	private int intervalHeight = INTERVAL_HEIGHT;
 	/** 预加载半径，当前页前后各预加载几页 */
 	private int preloadRadius = 3;
 
@@ -146,20 +148,20 @@ class ContinuousScrollModel {
 			if (cur == null) {
 				break;
 			}
-			if (scrollOffset < cur.height + INTERVAL_HEIGHT) {
+			if (scrollOffset < cur.height + intervalHeight) {
 				break;
 			}
 			if (!pageCache.containsKey(scrollPage + 1)) {
 				// 下一页还没加载出来，先停在这一页底部。
 				// 多滚出去的距离记下来，等下一页加载完再补上，滚动不会被吞掉。
-				int maxOffset = cur.height + INTERVAL_HEIGHT - 1;
+				int maxOffset = cur.height + intervalHeight - 1;
 				if (scrollOffset > maxOffset) {
 					pendingOffset = pendingOffset + (scrollOffset - maxOffset);
 					scrollOffset = maxOffset;
 				}
 				break;
 			}
-			scrollOffset = scrollOffset - cur.height - INTERVAL_HEIGHT;
+			scrollOffset = scrollOffset - cur.height - intervalHeight;
 			scrollPage = scrollPage + 1;
 		}
 		// 向上超出当前页
@@ -173,7 +175,7 @@ class ContinuousScrollModel {
 				break;
 			}
 			scrollPage = scrollPage - 1;
-			scrollOffset = scrollOffset + prev.height + INTERVAL_HEIGHT;
+			scrollOffset = scrollOffset + prev.height + intervalHeight;
 		}
 	}
 
@@ -185,6 +187,18 @@ class ContinuousScrollModel {
 	/** 视口顶部在当前页内的偏移 */
 	int getScrollOffset() {
 		return scrollOffset;
+	}
+
+	/**
+	 * 设置页与页之间的间隔，"无缝显示"时传0，页和页就紧挨着拼在一起。
+	 */
+	void setSeamless(boolean seamless) {
+		intervalHeight = seamless ? 0 : INTERVAL_HEIGHT;
+	}
+
+	/** 当前页与页之间的间隔 */
+	int getIntervalHeight() {
+		return intervalHeight;
 	}
 
 	/** 设置渲染缩放比例 */
@@ -215,7 +229,7 @@ class ContinuousScrollModel {
 				break;
 			}
 			visible.add(new VisiblePage(page, baseX + panX + (maxWidth - page.width) / 2, y));
-			y = y + (int) ((page.height + INTERVAL_HEIGHT) * scale);
+			y = y + (int) ((page.height + intervalHeight) * scale);
 			pageNo++;
 		}
 		return visible;
@@ -245,7 +259,7 @@ class ContinuousScrollModel {
 			int extra = pendingOffset;
 			pendingOffset = 0;
 			// 记下的距离是从这一页的最后一个位置算起的，接着往下走
-			scrollOffset = cur.height + INTERVAL_HEIGHT - 1 + extra;
+			scrollOffset = cur.height + intervalHeight - 1 + extra;
 		} else {
 			// 往上滚：上一页加载出来了才能接着走
 			if (!pageCache.containsKey(scrollPage - 1)) {
