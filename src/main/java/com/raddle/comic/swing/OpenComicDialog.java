@@ -1,6 +1,7 @@
 package com.raddle.comic.swing;
 
 import java.awt.BorderLayout;
+import java.awt.Component;
 import java.awt.FlowLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -9,17 +10,23 @@ import java.awt.event.ItemListener;
 import java.io.File;
 import java.util.List;
 
+import javax.swing.DefaultListCellRenderer;
+import javax.swing.DefaultListModel;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
+import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.ListSelectionModel;
 import javax.swing.WindowConstants;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
 
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -49,7 +56,10 @@ public class OpenComicDialog extends JDialog {
 	private JTextField lastSectionIdLeb;
 	private JLabel comicNameLeb;
 	private String sectionName;
-	private JTextArea recentChpTxt;
+	private JList<SectionInfo> sectionList;
+	private final DefaultListModel<SectionInfo> sectionListModel = new DefaultListModel<SectionInfo>();
+	/** 程序化设置选中项时，屏蔽列表选择事件，避免重复加载页面 */
+	private boolean suppressSectionEvent = false;
 
 	/**
 	 * Launch the application.
@@ -89,6 +99,7 @@ public class OpenComicDialog extends JDialog {
 						descTxt.setText(msg + "\n描述：\n" + selectedItem.getDesc());
 						comicIdTxt.setText("");
 						sectionIdTxt.setText("");
+						sectionListModel.clear();
 						pageNoBox.removeAllItems();
 						pageInfos = null;
 					}
@@ -135,7 +146,7 @@ public class OpenComicDialog extends JDialog {
 		getBtn.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				recentChpTxt.setText("");
+				sectionListModel.clear();
 				ChannelInfo selectedItem = (ChannelInfo) channelBox.getSelectedItem();
 				if (selectedItem != null) {
 					ComicPluginEngine pluginEngine = new ComicPluginEngine();
@@ -160,10 +171,13 @@ public class OpenComicDialog extends JDialog {
 							sectionIdTxt.setText(sections.get(sections.size() - 1).getSectionId());
 						}
 						boolean matched = false;
-						for (SectionInfo sectionInfo : sections) {
+						int matchedIndex = -1;
+						for (int i = 0; i < sections.size(); i++) {
+							SectionInfo sectionInfo = sections.get(i);
 							if (sectionIdTxt.getText().equals(sectionInfo.getSectionId())) {
 								sectionName = sectionInfo.getName();
 								matched = true;
+								matchedIndex = i;
 								break;
 							}
 						}
@@ -172,13 +186,18 @@ public class OpenComicDialog extends JDialog {
 							if (StringUtils.isNotBlank(sections.get(sections.size() - 1).getName())) {
 								lastSectionIdLeb.setText(lastSectionIdLeb.getText() + "(名称：" + sections.get(sections.size() - 1).getName() + ")");
 							}
-							StringBuilder sb = new StringBuilder();
-							for (int i = 0; i < Math.min(sections.size(), 12); i++) {
-								sb.append(
-										sections.get(sections.size() - i - 1).getSectionId() + " - "
-												+ sections.get(sections.size() - i - 1).getName()).append("\n");
+							for (SectionInfo sectionInfo : sections) {
+								sectionListModel.addElement(sectionInfo);
 							}
-							recentChpTxt.setText(sb.toString());
+							if (matched) {
+								suppressSectionEvent = true;
+								try {
+									sectionList.setSelectedIndex(matchedIndex);
+									sectionList.ensureIndexIsVisible(matchedIndex);
+								} finally {
+									suppressSectionEvent = false;
+								}
+							}
 						}
 						if (!matched) {
 							pageInfos = null;
@@ -186,16 +205,9 @@ public class OpenComicDialog extends JDialog {
 							JOptionPane.showMessageDialog(null, "没有对应的章节信息");
 							return;
 						}
-						List<PageInfo> pages = pluginEngine.getPages(comicIdTxt.getText(), sectionIdTxt.getText());
-						pageNoBox.removeAllItems();
-						pageInfos = null;
-						if (pages != null && pages.size() == 0) {
+						if (!fillPageInfos(pluginEngine.getPages(comicIdTxt.getText(), sectionIdTxt.getText()))) {
 							JOptionPane.showMessageDialog(null, "没有获得到页面信息");
 							return;
-						}
-						pageInfos = pages;
-						for (PageInfo pageInfo : pages) {
-							pageNoBox.addItem(pageInfo);
 						}
 					} catch (Exception e1) {
 						pageInfos = null;
@@ -222,12 +234,45 @@ public class OpenComicDialog extends JDialog {
 		comicNameLeb.setBounds(351, 35, 278, 15);
 		contentPanel.add(comicNameLeb);
 		
-		JScrollPane recentChpScr = new JScrollPane();
-		recentChpScr.setBounds(10, 261, 751, 296);
-		contentPanel.add(recentChpScr);
-		
-		recentChpTxt = new JTextArea();
-		recentChpScr.setViewportView(recentChpTxt);
+		JLabel sectionListLabel = new JLabel("章节列表（选中后自动填入章节id）");
+		sectionListLabel.setBounds(10, 261, 300, 15);
+		contentPanel.add(sectionListLabel);
+
+		sectionList = new JList<SectionInfo>(sectionListModel);
+		sectionList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+		sectionList.setCellRenderer(new DefaultListCellRenderer() {
+			@Override
+			public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected,
+					boolean cellHasFocus) {
+				super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+				if (value instanceof SectionInfo) {
+					SectionInfo sectionInfo = (SectionInfo) value;
+					setText(sectionInfo.getSectionId() + " - " + StringUtils.defaultString(sectionInfo.getName()));
+				}
+				return this;
+			}
+		});
+		sectionList.addListSelectionListener(new ListSelectionListener() {
+			@Override
+			public void valueChanged(ListSelectionEvent e) {
+				if (e.getValueIsAdjusting() || suppressSectionEvent) {
+					return;
+				}
+				SectionInfo selected = sectionList.getSelectedValue();
+				if (selected != null) {
+					// 只填入章节id，是否获取内容由用户点击"获取"决定
+					sectionIdTxt.setText(selected.getSectionId());
+					sectionName = selected.getName();
+					// 章节已变，旧的页面信息不再对应当前章节，清空等待用户重新获取
+					pageNoBox.removeAllItems();
+					pageInfos = null;
+				}
+			}
+		});
+
+		JScrollPane sectionListScr = new JScrollPane(sectionList);
+		sectionListScr.setBounds(10, 281, 751, 276);
+		contentPanel.add(sectionListScr);
 		{
 			JPanel buttonPane = new JPanel();
 			buttonPane.setLayout(new FlowLayout(FlowLayout.RIGHT));
@@ -284,6 +329,7 @@ public class OpenComicDialog extends JDialog {
 		}
 		comicIdTxt.setText(viewInfo.getComicId());
 		sectionIdTxt.setText(viewInfo.getSectionId());
+		sectionListModel.clear();
 		ComicPluginEngine pluginEngine = new ComicPluginEngine();
 		try {
 			pluginEngine.init(((ChannelInfo) channelBox.getSelectedItem()).getScriptFile());
@@ -292,35 +338,41 @@ public class OpenComicDialog extends JDialog {
 				comicNameLeb.setText(StringUtils.defaultString(comicInfo.getComicName()));
 				List<SectionInfo> sections = comicInfo.getSections();
 				if (sections != null && sections.size() > 0) {
-					for (SectionInfo sectionInfo : sections) {
+					int matchedIndex = -1;
+					for (int i = 0; i < sections.size(); i++) {
+						SectionInfo sectionInfo = sections.get(i);
 						if (sectionIdTxt.getText().equals(sectionInfo.getSectionId())) {
 							sectionName = sectionInfo.getName();
-							break;
+							matchedIndex = i;
 						}
 					}
 					lastSectionIdLeb.setText("最后章节：" + sections.get(sections.size() - 1).getSectionId());
 					if (StringUtils.isNotBlank(sections.get(sections.size() - 1).getName())) {
 						lastSectionIdLeb.setText(lastSectionIdLeb.getText() + "(名称：" + sections.get(sections.size() - 1).getName() + ")");
 					}
-					StringBuilder sb = new StringBuilder();
-					for (int i = 0; i < Math.min(sections.size(), 12); i++) {
-						sb.append(
-								sections.get(sections.size() - i - 1).getSectionId() + " - "
-										+ sections.get(sections.size() - i - 1).getName()).append("\n");
+					for (SectionInfo sectionInfo : sections) {
+						sectionListModel.addElement(sectionInfo);
 					}
-					recentChpTxt.setText(sb.toString());
+					if (matchedIndex >= 0) {
+						suppressSectionEvent = true;
+						try {
+							sectionList.setSelectedIndex(matchedIndex);
+							sectionList.ensureIndexIsVisible(matchedIndex);
+						} finally {
+							suppressSectionEvent = false;
+						}
+					}
 				}
 			}
 			List<PageInfo> pages = pluginEngine.getPages(comicIdTxt.getText(), sectionIdTxt.getText());
-			pageNoBox.removeAllItems();
-			if (pages != null && pages.size() == 0) {
+			if (!fillPageInfos(pages)) {
 				return;
 			}
-			pageInfos = pages;
-			for (PageInfo pageInfo : pages) {
-				pageNoBox.addItem(pageInfo);
+			for (int i = 0; i < pageNoBox.getItemCount(); i++) {
+				PageInfo pageInfo = pageNoBox.getItemAt(i);
 				if (pageInfo.getPageNo().equals(viewInfo.getPageNo())) {
 					pageNoBox.setSelectedItem(pageInfo);
+					break;
 				}
 			}
 		} catch (Exception e) {
@@ -328,6 +380,22 @@ public class OpenComicDialog extends JDialog {
 		} finally {
 			pluginEngine.close();
 		}
+	}
+
+	/**
+	 * 填充页码下拉框，返回是否有页面信息。
+	 */
+	private boolean fillPageInfos(List<PageInfo> pages) {
+		pageNoBox.removeAllItems();
+		pageInfos = null;
+		if (pages == null || pages.isEmpty()) {
+			return false;
+		}
+		pageInfos = pages;
+		for (PageInfo pageInfo : pages) {
+			pageNoBox.addItem(pageInfo);
+		}
+		return true;
 	}
 
 	public ChannelInfo getChannelInfo() {
