@@ -24,9 +24,6 @@ function getSections(comicId) {
 		comicName = comicMatched[1];
 	}
 	var section_A_list = doc.select("a.pseudo.chaper-btn");
-	for ( var i = 0; i < section_A_list.length; i++) {
-        log.info(section_A_list[i].text())
-	}
 	var sections = [];
 	if(section_A_list != null && section_A_list.length > 0){
 		for ( var i = 0; i < section_A_list.length; i++) {
@@ -39,7 +36,7 @@ function getSections(comicId) {
 	}
 	return {
 		comicName : comicName,
-		sections : sections.reverse()
+		sections : sections
 	};
 }
 
