@@ -25,9 +25,9 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Deque;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.imageio.ImageIO;
 import javax.swing.JCheckBoxMenuItem;
@@ -69,7 +69,6 @@ public class ComicViewer {
 	private Point picStartPoint = new Point();
 	private OpenComicDialog openComicDialog = new OpenComicDialog();
 	private Image complexImage;
-	private int pageIntervalHeight = 5;
 	private ComicPluginEngine picEngine;
 	private Map<Integer, PageInfo> pageMap = new HashMap<Integer, PageInfo>();
 	private List<SectionInfo> sectionList;
@@ -89,7 +88,44 @@ public class ComicViewer {
 	private JMenu menu_2;
 	private JMenuItem menuItem_2;
 	private JCheckBoxMenuItem continueViewItem;
-	private ContiueImageHelper contiueImageHelper = new ContiueImageHelper();
+	/** 连续显示时加载页面图片 */
+	private final ContinuousScrollModel.PageLoader continuePageLoader = new ContinuousScrollModel.PageLoader() {
+		@Override
+		public Image load(int pageNo) throws Exception {
+			PageInfo pageInfo = pageMap.get(pageNo);
+			if (pageInfo == null) {
+				throw new IOException("没有第" + pageNo + "页的图片信息");
+			}
+			try {
+				Image image = loadImage(pageInfo, false);
+				if (image == null) {
+					// 抛出去让模型记下失败，不然会一直重试
+					throw new IOException("图片下载失败");
+				}
+				return image;
+			} catch (IOException e) {
+				logger.log(e.getMessage(), e);
+				throw e;
+			} catch (Exception e) {
+				logger.log(e.getMessage(), e);
+				throw new IOException(e.getMessage(), e);
+			}
+		}
+	};
+	/** 连续显示的滚动模型 */
+	private ContinuousScrollModel continueModel = new ContinuousScrollModel(0, continuePageLoader, new Runnable() {
+		@Override
+		public void run() {
+			// 页在后台加载好了，重画一下，不然要等下次滚动才看到
+			EventQueue.invokeLater(new Runnable() {
+				@Override
+				public void run() {
+					updateContinueTitle();
+					picPane.repaint();
+				}
+			});
+		}
+	});
 	private JCheckBoxMenuItem suiteWidthMenuItem;
 	private Map<String,String> comicUpdate = new HashMap<String, String>();
 
@@ -258,20 +294,20 @@ public class ComicViewer {
 
 			@Override
 			public void paint(Graphics g) {
-				if (complexImage != null) {
-					g.setColor(Color.BLACK);
-					g.fillRect(0, 0, this.getWidth(), this.getHeight());
+				g.setColor(Color.BLACK);
+				g.fillRect(0, 0, this.getWidth(), this.getHeight());
+				if (continueViewItem.isSelected() && pageMap.size() > 0) {
+					// 连续显示：一页一页直接画，位置由滚动模型算好
+					paintContinueView(g);
+				} else if (complexImage != null) {
 					g.drawImage(complexImage, picStartPoint.x, picStartPoint.y, this);
 					// 全屏显示页
-					if (isFullScreen && !continueViewItem.isSelected()) {
+					if (isFullScreen) {
 						g.setXORMode(Color.WHITE);
                         g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 15));
 						g.drawString(pageNo + "/" + pageMap.size(), this.getWidth() - 50, this.getHeight() - 10);
 						g.drawString(StringUtils.defaultString(sectionName, sectionId), 20, this.getHeight() - 10);
 					}
-				} else {
-					g.setColor(Color.BLACK);
-					g.fillRect(0, 0, this.getWidth(), this.getHeight());
 				}
 			}
 
@@ -280,17 +316,35 @@ public class ComicViewer {
 			@Override
 			public void keyPressed(KeyEvent e) {
 				int interval = 30;
+				boolean isContinue = continueViewItem.isSelected() && pageMap.size() > 0;
 				if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_UP) {
-					movePic(0, interval);
+					// 连续显示时纵向由滚动模型管，否则直接改偏移会和模型打架
+					if (isContinue) {
+						scrollContinue(0 - interval);
+					} else {
+						movePic(0, interval);
+					}
 					picPane.repaint();
 				} else if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_DOWN) {
-					movePic(0, 0 - interval);
+					if (isContinue) {
+						scrollContinue(interval);
+					} else {
+						movePic(0, 0 - interval);
+					}
 					picPane.repaint();
 				} else if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_LEFT) {
-					movePic(interval, 0);
+					if (isContinue) {
+						movePicHorizontalContinue(interval);
+					} else {
+						movePicHorizontal(interval);
+					}
 					picPane.repaint();
 				} else if (e.isControlDown() && e.getKeyCode() == KeyEvent.VK_RIGHT) {
-					movePic(0 - interval, 0);
+					if (isContinue) {
+						movePicHorizontalContinue(0 - interval);
+					} else {
+						movePicHorizontal(0 - interval);
+					}
 					picPane.repaint();
 				} else if (e.getKeyCode() == KeyEvent.VK_PAGE_DOWN || e.getKeyCode() == KeyEvent.VK_RIGHT) {
 					changePage(true);
@@ -341,22 +395,20 @@ public class ComicViewer {
 		picPane.addMouseWheelListener(new MouseWheelListener() {
 			@Override
 			public void mouseWheelMoved(MouseWheelEvent e) {
-				if (e.getWheelRotation() == 1) {
-					movePic(0, -50);
-					if (continueViewItem.isSelected() && pageMap.size() > 0) {
-						if (pageNo != contiueImageHelper.getCurPageNo(true)) {
-							pageNo = contiueImageHelper.getCurPageNo(true);
-							showImage(true);
-						}
+				if (continueViewItem.isSelected() && pageMap.size() > 0) {
+					// 连续显示：按"页码+页内偏移"滚动，位置不会因为长图重建而跳
+					if (e.getWheelRotation() == 1) {
+						scrollContinue(50);
 					}
-				}
-				if (e.getWheelRotation() == -1) {
-					movePic(0, 50);
-					if (continueViewItem.isSelected() && pageMap.size() > 0) {
-						if (pageNo != contiueImageHelper.getCurPageNo(false)) {
-							pageNo = contiueImageHelper.getCurPageNo(false);
-							showImage(false);
-						}
+					if (e.getWheelRotation() == -1) {
+						scrollContinue(-50);
+					}
+				} else {
+					if (e.getWheelRotation() == 1) {
+						movePic(0, -50);
+					}
+					if (e.getWheelRotation() == -1) {
+						movePic(0, 50);
 					}
 				}
 				picPane.repaint();
@@ -368,13 +420,13 @@ public class ComicViewer {
 			public void mouseDragged(MouseEvent e) {
 				int changedX = e.getPoint().x - pressedPoint.x;
 				int changedY = e.getPoint().y - pressedPoint.y;
-				movePic(changedX, changedY);
 				pressedPoint = e.getPoint();
 				if (continueViewItem.isSelected() && pageMap.size() > 0) {
-					if (pageNo != contiueImageHelper.getCurPageNo(false)) {
-						pageNo = contiueImageHelper.getCurPageNo(false);
-						showImage(false);
-					}
+					// 连续显示：纵向按"页码+页内偏移"滚动，横向单独处理
+					movePicHorizontalContinue(changedX);
+					scrollContinue(-changedY);
+				} else {
+					movePic(changedX, changedY);
 				}
 				picPane.repaint();
 			}
@@ -435,44 +487,160 @@ public class ComicViewer {
     }
 
 	private void movePic(int changedX, int changedY) {
-		if (complexImage != null) {
-			// 移动图片，图片边界不能超出窗口
-			int x = picStartPoint.x + changedX;
-			if (x < 0) {
-				if (picPane.getWidth() > complexImage.getWidth(null)) {
-					picStartPoint.x = 0;
-				} else {
-					picStartPoint.x = Math.max(x, picPane.getWidth() - complexImage.getWidth(null));
-				}
-			} else {
-				if (picPane.getWidth() > complexImage.getWidth(null)) {
-					picStartPoint.x = Math.min(x, picPane.getWidth() - complexImage.getWidth(null));
-				} else {
-					picStartPoint.x = 0;
-				}
-			}
-			int y = picStartPoint.y + changedY;
-			if (y < 0) {
-				if (picPane.getHeight() > complexImage.getHeight(null)) {
-					picStartPoint.y = 0;
-				} else {
-					picStartPoint.y = Math.max(y, picPane.getHeight() - complexImage.getHeight(null));
-				}
-			} else {
-				if (picPane.getHeight() > complexImage.getHeight(null)) {
-					picStartPoint.y = Math.min(y, picPane.getHeight() - complexImage.getHeight(null));
-				} else {
-					picStartPoint.y = 0;
-				}
-			}
-			// 窗口大于图片，图片剧中
-			if (picPane.getWidth() > complexImage.getWidth(null)) {
-				picStartPoint.x = (int) ((picPane.getWidth() - complexImage.getWidth(null)) / 2.0);
-			}
+		if (complexImage == null) {
+			return;
+		}
+		movePicHorizontal(changedX);
+		int y = picStartPoint.y + changedY;
+		if (y < 0) {
 			if (picPane.getHeight() > complexImage.getHeight(null)) {
-				picStartPoint.y = (int) ((picPane.getHeight() - complexImage.getHeight(null)) / 2.0);
+				picStartPoint.y = 0;
+			} else {
+				picStartPoint.y = Math.max(y, picPane.getHeight() - complexImage.getHeight(null));
+			}
+		} else {
+			if (picPane.getHeight() > complexImage.getHeight(null)) {
+				picStartPoint.y = Math.min(y, picPane.getHeight() - complexImage.getHeight(null));
+			} else {
+				picStartPoint.y = 0;
 			}
 		}
+		// 窗口大于图片，图片剧中
+		if (picPane.getHeight() > complexImage.getHeight(null)) {
+			picStartPoint.y = (int) ((picPane.getHeight() - complexImage.getHeight(null)) / 2.0);
+		}
+	}
+
+	/**
+	 * 连续显示的横向平移。窗口比图片宽的时候居中显示，不用平移。
+	 */
+	private void movePicHorizontalContinue(int changedX) {
+		int imageWidth = continueModel.getContentWidth();
+		if (imageWidth <= 0) {
+			return;
+		}
+		if (picPane.getWidth() > imageWidth) {
+			// 比窗口窄，居中显示就行
+			picStartPoint.x = 0;
+			return;
+		}
+		int x = picStartPoint.x + changedX;
+		picStartPoint.x = x > 0 ? 0 : Math.max(x, picPane.getWidth() - imageWidth);
+	}
+
+	/** 横向移动图片，图片边界不能超出窗口 */
+	private void movePicHorizontal(int changedX) {
+		int imageWidth = getDisplayWidth();
+		if (imageWidth <= 0) {
+			return;
+		}
+		int x = picStartPoint.x + changedX;
+		if (x < 0) {
+			if (picPane.getWidth() > imageWidth) {
+				picStartPoint.x = 0;
+			} else {
+				picStartPoint.x = Math.max(x, picPane.getWidth() - imageWidth);
+			}
+		} else {
+			if (picPane.getWidth() > imageWidth) {
+				picStartPoint.x = Math.min(x, picPane.getWidth() - imageWidth);
+			} else {
+				picStartPoint.x = 0;
+			}
+		}
+		// 窗口大于图片，图片居中
+		if (picPane.getWidth() > imageWidth) {
+			picStartPoint.x = (int) ((picPane.getWidth() - imageWidth) / 2.0);
+		}
+	}
+
+	/** 当前显示的图片宽度 */
+	private int getDisplayWidth() {
+		return complexImage == null ? 0 : complexImage.getWidth(null);
+	}
+
+	/**
+	 * 连续显示：把当前视口里的页一页页画出来。
+	 * 没加载出来的页不画，下面留黑并提示正在加载，加载完直接补上，位置不会变。
+	 */
+	private void paintContinueView(Graphics g) {
+		int paneWidth = picPane.getWidth();
+		int paneHeight = picPane.getHeight();
+		List<ContinuousScrollModel.VisiblePage> visible = continueModel.getVisiblePages(paneWidth, paneHeight, picStartPoint.x);
+		g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 24));
+		for (ContinuousScrollModel.VisiblePage visiblePage : visible) {
+			ContinuousScrollModel.Page page = visiblePage.page;
+			g.drawImage(page.image, visiblePage.x, visiblePage.y, picPane);
+			g.setColor(Color.BLACK);
+			g.drawString(page.pageNo + "/" + pageMap.size(), visiblePage.x + page.width - 80, visiblePage.y + page.height - 10);
+		}
+		// 加载失败或者还有页没加载出来，提示一下
+		g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 15));
+		String failed = continueModel.getFailedReason();
+		if (failed != null) {
+			g.setColor(Color.RED);
+			g.drawString(failed + "（继续滚动可重试）", 20, paneHeight - 20);
+		} else {
+			Integer missing = continueModel.getMissingPage();
+			if (missing != null) {
+				g.setColor(Color.GRAY);
+				g.drawString("正在加载第" + missing + "页...", 20, paneHeight - 20);
+			}
+		}
+	}
+
+	/**
+	 * 连续显示模式下的滚动。delta 为正表示向下滚（看下面的内容）。
+	 *
+	 * 滚动位置由 continueModel 以"页码+页内偏移"保存，和画了多少页无关，
+	 * 所以图片加载完、页面加载完，位置都不会变，画面也就不会跳。
+	 */
+	private void scrollContinue(int delta) {
+		updateContinueScale();
+		continueModel.scroll(delta);
+		int curPageNo = continueModel.getCurPageNo();
+		if (curPageNo != pageNo) {
+			pageNo = curPageNo;
+			frame.setTitle(getBasicTitle());
+			try {
+				RecentViewHelper.updateRecentView(channelInfo, comicId, comicName, sectionId, sectionName, pageNo, pageMap.size());
+			} catch (Exception e) {
+				logger.log(e.getMessage(), e);
+			}
+		}
+		continueModel.preload();
+		updateContinueTitle();
+		picPane.repaint();
+	}
+
+	/**
+	 * 更新标题。加载中和加载失败都体现在标题上，
+	 * 跟以前打开漫画时标题显示"loading"是一个做法。
+	 */
+	private void updateContinueTitle() {
+		if (channelInfo == null) {
+			return;
+		}
+		String title = getBasicTitle();
+		String failed = continueModel.getFailedReason();
+		if (failed != null) {
+			frame.setTitle(title + " - " + failed);
+		} else if (continueModel.isLoading()) {
+			// 跟 showImage 里的写法保持一致
+			frame.setTitle(title + " - loading");
+		} else {
+			frame.setTitle(title);
+		}
+	}
+
+	/** 更新连续显示的缩放比例，"适合高度"时把每页缩放到窗口高度 */
+	private void updateContinueScale() {
+		ContinuousScrollModel.Page page = continueModel.getCurPage();
+		if (!suiteWidthMenuItem.isSelected() || page == null) {
+			continueModel.setScale(1.0);
+			return;
+		}
+		continueModel.setScale((double) picPane.getHeight() / page.height);
 	}
 
 	private synchronized void showImage(final boolean isNextPage) {
@@ -492,12 +660,11 @@ public class ComicViewer {
 							}
 							try {
 								if (continueViewItem.isSelected()) {
-									contiueImageHelper.changePage(pageNo ,isNextPage);
-									complexImage = contiueImageHelper.getCompositeImage();
-									if(suiteWidthMenuItem.isSelected()){
-										scaleToHeight();
-									}
-									movePic(0, 0);
+									// 连续显示：定位到当前页，把这一页加载出来就能画
+									continueModel.gotoPage(pageNo);
+									continueModel.loadPage(pageNo);
+									continueModel.preload();
+									updateContinueScale();
 									picPane.repaint();
 								} else {
 									complexImage = loadImage(pageInfo);
@@ -532,7 +699,12 @@ public class ComicViewer {
 							}
 						}
 					} finally {
-						frame.setTitle(getBasicTitle());
+						if (continueViewItem.isSelected()) {
+							// 连续显示的加载状态由 updateContinueTitle 管，别把" loading"冲掉
+							updateContinueTitle();
+						} else {
+							frame.setTitle(getBasicTitle());
+						}
 						loading = false;
 					}
 				}
@@ -583,6 +755,9 @@ public class ComicViewer {
 										pageMap.put(pageInfo1.getPageNo(), pageInfo1);
 									}
 									pageNo = isNextPage ? 1 : pageMap.size();
+									// 换章了，缓存里还是上一章的图片，要清掉
+									continueModel.setPageCount(pageMap.size());
+									continueModel.reset(pageNo);
 									success = true;
 								} catch (Exception e1) {
 									logger.log(e1.getMessage(), e1);
@@ -611,6 +786,15 @@ public class ComicViewer {
 	}
 
 	private Image loadImage(PageInfo pageInfo) throws IOException {
+		return loadImage(pageInfo, true);
+	}
+
+	/**
+	 * 加载图片。
+	 *
+	 * @param showError 加载失败时是否弹窗，后台预加载时传 false，避免在非事件线程弹窗
+	 */
+	private Image loadImage(PageInfo pageInfo, boolean showError) throws IOException {
 		Image img = null;
 		// 本地文件 c:/xxx 或者 /xx/xx xxx/xxx
 		if (pageInfo.getPageUrl().charAt(1) == ':' || pageInfo.getPageUrl().indexOf(':') == -1) {
@@ -625,10 +809,12 @@ public class ComicViewer {
 				if (!cacheFile.getParentFile().exists()) {
 					cacheFile.getParentFile().mkdirs();
 				}
+				// 预加载会同时下载多页，HttpClient 本身是线程安全的，不用串行，
+				// 否则一页超时会把其它页都堵住
 				picEngine.loadRemoteImage(comicId, sectionId, pageInfo.getPageNo(), pageInfo.getPageUrl());
 				if (cacheFile.exists()) {
 					img = ImageIO.read(cacheFile);
-				} else {
+				} else if (showError) {
 					JOptionPane.showMessageDialog(null, "加载图片失败");
 				}
 			}
@@ -638,6 +824,16 @@ public class ComicViewer {
 
 	private void moveViewDown() {
 		if (complexImage != null) {
+			if (continueViewItem.isSelected() && pageMap.size() > 0) {
+				// 连续显示：按页滚动，翻到本章最后一页才换章
+				if (continueModel.isAtBottom()) {
+					changePage(true);
+				} else {
+					scrollContinue((int) (picPane.getHeight() * 0.9));
+				}
+				picPane.repaint();
+				return;
+			}
 			if (complexImage.getHeight(null) + picStartPoint.y > picPane.getHeight()) {
 				// 没有到底,往下翻3/4个高度
 				movePic(0, 0 - (int) (picPane.getHeight() * 0.9));
@@ -669,7 +865,19 @@ public class ComicViewer {
 			channelInfo = openComicDialog.getChannelInfo();
 			sectionList = null;
 			picStartPoint.y = 0;
-			contiueImageHelper = new ContiueImageHelper();
+			// 新章节，重新建一个滚动模型，缓存清空
+			continueModel = new ContinuousScrollModel(pageMap.size(), continuePageLoader, new Runnable() {
+				@Override
+				public void run() {
+					EventQueue.invokeLater(new Runnable() {
+						@Override
+						public void run() {
+							updateContinueTitle();
+							picPane.repaint();
+						}
+					});
+				}
+			});
 			showImage(true);
 		}
 	}
@@ -690,6 +898,16 @@ public class ComicViewer {
 
 	private void moveViewUp() {
 		if (complexImage != null) {
+			if (continueViewItem.isSelected() && pageMap.size() > 0) {
+				// 连续显示：按页滚动，翻到本章第一页才换章
+				if (continueModel.isAtTop()) {
+					changePage(false);
+				} else {
+					scrollContinue(0 - (int) (picPane.getHeight() * 0.9));
+				}
+				picPane.repaint();
+				return;
+			}
 			if (picStartPoint.y < 0) {
 				// 没有到最上面,往上翻3/4个高度
 				movePic(0, (int) (picPane.getHeight() * 0.9));
@@ -747,126 +965,4 @@ public class ComicViewer {
         }
     }
 
-    private class ContiueImageHelper {
-		private Deque<ImageInfo> imageQueue = new LinkedList<ComicViewer.ImageInfo>();
-		private int intervalHeight = 5;
-
-		public void changePage(int pageNo, boolean isNextPage) {
-			// 缓存前一个，后两个
-			Deque<ImageInfo> newImageQueue = new LinkedList<ComicViewer.ImageInfo>();
-			if (pageNo > 1) {
-				putImage(newImageQueue, pageNo - 1);
-			}
-			putImage(newImageQueue, pageNo);
-			if (pageNo < pageMap.size()) {
-				putImage(newImageQueue, pageNo + 1);
-			}
-			// 重新计算起始位置
-			// 原页面偏移量
-			int oldPageNo = getCurPageNo(isNextPage);
-			int posY = Math.abs(picStartPoint.y);
-			for (ImageInfo imageInfo : imageQueue) {
-				if (imageInfo.pageNo < oldPageNo) {
-					posY = posY - imageInfo.height - intervalHeight;
-				}
-			}
-			imageQueue = newImageQueue;
-			// 新偏移量
-			boolean has = false;
-			for (ImageInfo imageInfo : imageQueue) {
-				if (imageInfo.pageNo < oldPageNo) {
-					posY = posY + imageInfo.height + intervalHeight;
-				} else if (imageInfo.pageNo == oldPageNo) {
-					has = true;
-				}
-			}
-			if (has) {
-				picStartPoint.y = 0 - posY;
-			} else {
-				// goto到某一页了
-				picStartPoint.y = 0 - imageQueue.getFirst().height - intervalHeight;
-			}
-		}
-
-        public int getCurPageNo(boolean isNextPage) {
-            if (imageQueue.size() == 0) {
-                return pageNo;
-            }
-            int curY = 0;
-            int posY = Math.abs(picStartPoint.y);
-            if (isNextPage) {
-                for (ImageInfo imageInfo : imageQueue) {
-                    curY = curY + imageInfo.height + intervalHeight;
-                    if (curY > posY + picPane.getHeight()) {
-                        return imageInfo.pageNo;
-                    }
-                }
-            } else {
-                for (ImageInfo imageInfo : imageQueue) {
-                    curY = curY + imageInfo.height + intervalHeight;
-                    if (curY > posY) {
-                        return imageInfo.pageNo;
-                    }
-                }
-            }
-            return imageQueue.getLast().pageNo;
-        }
-
-		public Image getCompositeImage() {
-			// 合并图片
-			int width = 0;
-			int height = 0;
-			for (ImageInfo imageInfo : imageQueue) {
-				width = Math.max(width, imageInfo.width);
-				height = height + intervalHeight + imageInfo.height;
-			}
-			BufferedImage merged = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-			int curY = 0;
-			Graphics graphics = merged.getGraphics();
-			for (ImageInfo imageInfo : imageQueue) {
-				graphics.setColor(Color.BLACK);
-				graphics.drawImage(imageInfo.image, (int) Math.round(((width - imageInfo.width) / 2.0)), curY, null);
-				graphics.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 24));
-				graphics.drawString(imageInfo.pageNo + "/" + pageMap.size(), width - 80, curY + imageInfo.height - 10);
-				curY = curY + imageInfo.height + pageIntervalHeight;
-			}
-			graphics.dispose();
-			return merged;
-		}
-
-		private void putImage(Deque<ImageInfo> newImageQueue, int pageNo) {
-			if (getImage(pageNo) != null) {
-				newImageQueue.add(getImage(pageNo));
-			} else {
-				try {
-					newImageQueue.add(new ImageInfo(pageNo, loadImage(pageMap.get(pageNo))));
-				} catch (IOException e) {
-					logger.log(e.getMessage(), e);
-				}
-			}
-		}
-
-		private ImageInfo getImage(int pageNo) {
-			for (ImageInfo imageInfo : imageQueue) {
-				if (imageInfo.pageNo == pageNo) {
-					return imageInfo;
-				}
-			}
-			return null;
-		}
-	}
-
-	private class ImageInfo {
-		private int pageNo;
-		private Image image;
-		private int width;
-		private int height;
-
-		public ImageInfo(int pageNo, Image image) {
-			this.pageNo = pageNo;
-			this.image = image;
-			this.width = image.getWidth(null);
-			this.height = image.getHeight(null);
-		}
-	}
 }
