@@ -39,6 +39,15 @@ class ContinuousScrollModel {
 		 * @throws Exception 加载失败，异常信息就是给用户看的失败原因
 		 */
 		Image load(int pageNo) throws Exception;
+
+		/**
+		 * 这一页是不是已经在本地缓存里了。
+		 * 连续下载时已经在本地的页就不用再读一遍。
+		 *
+		 * @param pageNo 页码
+		 * @return 本地有返回true
+		 */
+		boolean isCached(int pageNo);
 	}
 
 	/** 一页图片 */
@@ -85,6 +94,10 @@ class ContinuousScrollModel {
 	private final Set<Integer> wantedPages = ConcurrentHashMap.newKeySet();
 	/** 连续下载：勾选后下载完一页接着下载下一页 */
 	private volatile boolean continuousDownload = false;
+	/** 连续下载已经下到第几页了 */
+	private volatile int downloadedTo = 0;
+	/** 本章是不是已经全部下载完了，全下完了就不用再起链了 */
+	private volatile boolean chapterDownloaded = false;
 	/** 连续下载的线程是否已经在跑了，避免起多条链 */
 	private final AtomicBoolean continuousDownloading = new AtomicBoolean(false);
 	/** 加载失败的页和失败原因 */
@@ -117,6 +130,8 @@ class ContinuousScrollModel {
 		pageCache.clear();
 		loadingPages.clear();
 		failedPages.clear();
+		downloadedTo = 0;
+		chapterDownloaded = false;
 		scrollPage = pageNo;
 		scrollOffset = 0;
 	}
@@ -410,7 +425,14 @@ class ContinuousScrollModel {
 	 * 中途出错就停下来，把错误交给界面提示。
 	 */
 	private void startContinuousDownload(int fromPage) {
-		if (!continuousDownload || fromPage > pageCount) {
+		if (!continuousDownload || chapterDownloaded) {
+			// 本章已经全部下载完了，不用再起链
+			return;
+		}
+		// 从上次下到的地方接着下，已经下过的页不用再读一遍
+		int start = Math.max(fromPage, downloadedTo + 1);
+		if (start > pageCount) {
+			chapterDownloaded = true;
 			return;
 		}
 		if (!continuousDownloading.compareAndSet(false, true)) {
@@ -422,10 +444,15 @@ class ContinuousScrollModel {
 			public void run() {
 				logger.log("start continuous download");
 				try {
-					for (int pageNo = fromPage; pageNo <= pageCount; pageNo++) {
+					for (int pageNo = start; pageNo <= pageCount; pageNo++) {
 						if (!continuousDownload) {
 							// 用户把连续下载关掉了
 							break;
+						}
+						if (loader.isCached(pageNo)) {
+							// 本地已经有了，不用再读一遍
+							downloadedTo = Math.max(downloadedTo, pageNo);
+							continue;
 						}
 						if (!loadingPages.add(pageNo)) {
 							// 别的线程正在下这一页，跳过
@@ -442,6 +469,11 @@ class ContinuousScrollModel {
 							// 出错了，停下来，错误信息界面上会显示
 							break;
 						}
+						downloadedTo = Math.max(downloadedTo, pageNo);
+					}
+					if (downloadedTo >= pageCount) {
+						// 整章都下完了
+						chapterDownloaded = true;
 					}
 				} finally {
 					continuousDownloading.set(false);

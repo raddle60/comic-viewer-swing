@@ -26,6 +26,11 @@ public class ContinuousScrollModelTest {
 	private ContinuousScrollModel.PageLoader loader() {
 		return new ContinuousScrollModel.PageLoader() {
 			@Override
+			public boolean isCached(int pageNo) {
+				return false;
+			}
+
+			@Override
 			public Image load(int pageNo) {
 				return new BufferedImage(PAGE_WIDTH, PAGE_HEIGHT, BufferedImage.TYPE_INT_RGB);
 			}
@@ -80,6 +85,11 @@ public class ContinuousScrollModelTest {
 		final List<Integer> loaded = new ArrayList<Integer>();
 		ContinuousScrollModel model = new ContinuousScrollModel(PAGE_COUNT, new ContinuousScrollModel.PageLoader() {
 			@Override
+			public boolean isCached(int pageNo) {
+				return false;
+			}
+
+			@Override
 			public Image load(int pageNo) {
 				// 只有先放入loaded的页才加载得出来
 				if (!loaded.contains(pageNo)) {
@@ -112,6 +122,11 @@ public class ContinuousScrollModelTest {
 	public void 缺页时不会露出错位的画面() {
 		ContinuousScrollModel model = new ContinuousScrollModel(PAGE_COUNT, new ContinuousScrollModel.PageLoader() {
 			@Override
+			public boolean isCached(int pageNo) {
+				return false;
+			}
+
+			@Override
 			public Image load(int pageNo) {
 				// 只加载得到第1页，后面的页都拿不到
 				return pageNo == 1 ? new BufferedImage(PAGE_WIDTH, PAGE_HEIGHT, BufferedImage.TYPE_INT_RGB) : null;
@@ -141,6 +156,11 @@ public class ContinuousScrollModelTest {
 	public void 加载失败的页不会自动重试() throws Exception {
 		final List<Integer> requested = new ArrayList<Integer>();
 		ContinuousScrollModel model = new ContinuousScrollModel(PAGE_COUNT, new ContinuousScrollModel.PageLoader() {
+			@Override
+			public boolean isCached(int pageNo) {
+				return false;
+			}
+
 			@Override
 			public Image load(int pageNo) throws Exception {
 				requested.add(pageNo);
@@ -173,6 +193,11 @@ public class ContinuousScrollModelTest {
 		final List<Integer> requested = new ArrayList<Integer>();
 		ContinuousScrollModel model = new ContinuousScrollModel(PAGE_COUNT, new ContinuousScrollModel.PageLoader() {
 			@Override
+			public boolean isCached(int pageNo) {
+				return false;
+			}
+
+			@Override
 			public Image load(int pageNo) throws Exception {
 				requested.add(pageNo);
 				if (pageNo == 2) {
@@ -200,6 +225,11 @@ public class ContinuousScrollModelTest {
 	public void 连续下载下的页也要能显示出来() throws Exception {
 		final List<Integer> requested = Collections.synchronizedList(new ArrayList<Integer>());
 		ContinuousScrollModel model = new ContinuousScrollModel(PAGE_COUNT, new ContinuousScrollModel.PageLoader() {
+			@Override
+			public boolean isCached(int pageNo) {
+				return false;
+			}
+
 			@Override
 			public Image load(int pageNo) throws Exception {
 				requested.add(pageNo);
@@ -235,9 +265,96 @@ public class ContinuousScrollModelTest {
 	}
 
 	@Test
+	public void 滚到本章最后一页就到头了() {
+		ContinuousScrollModel model = new ContinuousScrollModel(PAGE_COUNT, loader(), null);
+		model.reset(PAGE_COUNT);
+		model.loadPage(PAGE_COUNT);
+		Assert.assertFalse("还没滚到底", model.isAtBottom());
+		for (int i = 0; i < 100; i++) {
+			model.scroll(50);
+		}
+		Assert.assertTrue("应该到本章末尾了", model.isAtBottom());
+		// 再往下滚也滚不动了
+		int offset = model.getScrollOffset();
+		model.scroll(50);
+		Assert.assertEquals("到本章末尾后应该滚不动", offset, model.getScrollOffset());
+	}
+
+	@Test
+	public void 整章下完就不再起链了() throws Exception {
+		final List<Integer> loaded = Collections.synchronizedList(new ArrayList<Integer>());
+		ContinuousScrollModel model = new ContinuousScrollModel(PAGE_COUNT, new ContinuousScrollModel.PageLoader() {
+			@Override
+			public boolean isCached(int pageNo) {
+				return false;
+			}
+
+			@Override
+			public Image load(int pageNo) throws Exception {
+				loaded.add(pageNo);
+				return new BufferedImage(PAGE_WIDTH, PAGE_HEIGHT, BufferedImage.TYPE_INT_RGB);
+			}
+		}, null);
+		model.setContinuousDownload(true);
+		model.reset(1);
+		model.loadPage(1);
+
+		// 等整章下完
+		for (int i = 0; i < 300 && loaded.size() < PAGE_COUNT; i++) {
+			Thread.sleep(20);
+		}
+		Assert.assertEquals("应该把本章都下完", PAGE_COUNT, loaded.size());
+
+		// 整章下完了，再触发也不该重新起链，把整章文件都读一遍。
+		// 预加载还是会把当前页附近的页读进内存，那没关系，但不能读到整章。
+		Thread.sleep(200);
+		loaded.clear();
+		model.preload();
+		Thread.sleep(300);
+		int maxPage = 0;
+		for (Integer pageNo : loaded) {
+			maxPage = Math.max(maxPage, pageNo.intValue());
+		}
+		Assert.assertTrue("整章下完后不该重新起链读整章的文件: " + loaded, maxPage <= 10);
+	}
+
+	@Test
+	public void 本地已有的页不用再读一遍() throws Exception {
+		final List<Integer> loaded = Collections.synchronizedList(new ArrayList<Integer>());
+		ContinuousScrollModel model = new ContinuousScrollModel(PAGE_COUNT, new ContinuousScrollModel.PageLoader() {
+			@Override
+			public boolean isCached(int pageNo) {
+				// 前5页本地已经有了
+				return pageNo <= 5;
+			}
+
+			@Override
+			public Image load(int pageNo) throws Exception {
+				loaded.add(pageNo);
+				return new BufferedImage(PAGE_WIDTH, PAGE_HEIGHT, BufferedImage.TYPE_INT_RGB);
+			}
+		}, null);
+		model.setContinuousDownload(true);
+		model.reset(1);
+		model.loadPage(1);
+
+		for (int i = 0; i < 300 && loaded.size() < PAGE_COUNT - 5; i++) {
+			Thread.sleep(20);
+		}
+		Thread.sleep(200);
+		Assert.assertFalse("本地已有的页不该再读一遍: " + loaded, loaded.contains(2));
+		Assert.assertFalse("本地已有的页不该再读一遍: " + loaded, loaded.contains(3));
+	}
+
+	@Test
 	public void 连续下载会把本章都下完() throws Exception {
 		final List<Integer> requested = Collections.synchronizedList(new ArrayList<Integer>());
 		ContinuousScrollModel model = new ContinuousScrollModel(PAGE_COUNT, new ContinuousScrollModel.PageLoader() {
+			@Override
+			public boolean isCached(int pageNo) {
+				return false;
+			}
+
 			@Override
 			public Image load(int pageNo) throws Exception {
 				requested.add(pageNo);
@@ -258,6 +375,11 @@ public class ContinuousScrollModelTest {
 	public void 连续下载出错就停下来() throws Exception {
 		final List<Integer> requested = Collections.synchronizedList(new ArrayList<Integer>());
 		ContinuousScrollModel model = new ContinuousScrollModel(PAGE_COUNT, new ContinuousScrollModel.PageLoader() {
+			@Override
+			public boolean isCached(int pageNo) {
+				return false;
+			}
+
 			@Override
 			public Image load(int pageNo) throws Exception {
 				requested.add(pageNo);
@@ -283,6 +405,11 @@ public class ContinuousScrollModelTest {
 	public void 没勾连续下载就不会接着下载() throws Exception {
 		final List<Integer> requested = Collections.synchronizedList(new ArrayList<Integer>());
 		ContinuousScrollModel model = new ContinuousScrollModel(PAGE_COUNT, new ContinuousScrollModel.PageLoader() {
+			@Override
+			public boolean isCached(int pageNo) {
+				return false;
+			}
+
 			@Override
 			public Image load(int pageNo) throws Exception {
 				requested.add(pageNo);
@@ -348,6 +475,11 @@ public class ContinuousScrollModelTest {
 	public void 预加载会请求没加载的页() {
 		final List<Integer> requested = new ArrayList<Integer>();
 		ContinuousScrollModel model = new ContinuousScrollModel(PAGE_COUNT, new ContinuousScrollModel.PageLoader() {
+			@Override
+			public boolean isCached(int pageNo) {
+				return false;
+			}
+
 			@Override
 			public Image load(int pageNo) {
 				requested.add(pageNo);

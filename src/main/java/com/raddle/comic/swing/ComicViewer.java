@@ -91,6 +91,19 @@ public class ComicViewer {
 	/** 连续显示时加载页面图片 */
 	private final ContinuousScrollModel.PageLoader continuePageLoader = new ContinuousScrollModel.PageLoader() {
 		@Override
+		public boolean isCached(int pageNo) {
+			PageInfo pageInfo = pageMap.get(pageNo);
+			if (pageInfo == null) {
+				return false;
+			}
+			try {
+				return getLocalFile(pageInfo).exists();
+			} catch (Exception e) {
+				return false;
+			}
+		}
+
+		@Override
 		public Image load(int pageNo) throws Exception {
 			PageInfo pageInfo = pageMap.get(pageNo);
 			if (pageInfo == null) {
@@ -130,6 +143,8 @@ public class ComicViewer {
 	private JCheckBoxMenuItem seamlessViewItem;
 	private JCheckBoxMenuItem continuousDownloadItem;
 	private Map<String,String> comicUpdate = new HashMap<String, String>();
+	/** 已经提示过要不要继续下一章了，位置动了就重新提示 */
+	private boolean nextChapterPromptShown = false;
 
 	/**
 	 * Launch the application.
@@ -627,7 +642,10 @@ public class ComicViewer {
 	 */
 	private void scrollContinue(int delta) {
 		updateContinueScale();
+		int oldPageNo = continueModel.getCurPageNo();
+		int oldOffset = continueModel.getScrollOffset();
 		continueModel.scroll(delta);
+		boolean moved = continueModel.getCurPageNo() != oldPageNo || continueModel.getScrollOffset() != oldOffset;
 		int curPageNo = continueModel.getCurPageNo();
 		if (curPageNo != pageNo) {
 			pageNo = curPageNo;
@@ -637,6 +655,14 @@ public class ComicViewer {
 			} catch (Exception e) {
 				logger.log(e.getMessage(), e);
 			}
+		}
+		if (moved) {
+			// 位置动了，下次到底了还能再提示
+			nextChapterPromptShown = false;
+		} else if (delta > 0 && continueModel.isAtBottom() && !nextChapterPromptShown) {
+			// 已经到本章最后一页了，用户还在往下拉，问一下要不要继续下一章
+			nextChapterPromptShown = true;
+			promptNextChapter();
 		}
 		continueModel.preload();
 		updateContinueTitle();
@@ -824,6 +850,16 @@ public class ComicViewer {
 	 *
 	 * @param showError 加载失败时是否弹窗，后台预加载时传 false，避免在非事件线程弹窗
 	 */
+	/** 这一页在本地对应的文件，本地路径就是图片本身，远程地址对应缓存目录里的文件 */
+	private File getLocalFile(PageInfo pageInfo) {
+		// 本地文件 c:/xxx 或者 /xx/xx xxx/xxx
+		if (pageInfo.getPageUrl().charAt(1) == ':' || pageInfo.getPageUrl().indexOf(':') == -1) {
+			return new File(pageInfo.getPageUrl());
+		}
+		return new File(System.getProperty("user.home") + "/.comic-view/cache/img/" + channelInfo.getName() + "/" + comicId + "/"
+				+ sectionId + "/" + StringUtils.defaultIfBlank(pageInfo.getFilename(), FilenameUtils.getName(pageInfo.getPageUrl())));
+	}
+
 	private Image loadImage(PageInfo pageInfo, boolean showError) throws IOException {
 		Image img = null;
 		// 本地文件 c:/xxx 或者 /xx/xx xxx/xxx
@@ -831,8 +867,7 @@ public class ComicViewer {
 			img = ImageIO.read(new File(pageInfo.getPageUrl()));
 		} else {
 			// 缓存
-			File cacheFile = new File(System.getProperty("user.home") + "/.comic-view/cache/img/" + channelInfo.getName() + "/" + comicId + "/"
-					+ sectionId + "/" + StringUtils.defaultIfBlank(pageInfo.getFilename(), FilenameUtils.getName(pageInfo.getPageUrl())));
+			File cacheFile = getLocalFile(pageInfo);
 			if (cacheFile.exists()) {
 				img = ImageIO.read(cacheFile);
 			} else {
@@ -855,9 +890,9 @@ public class ComicViewer {
 	private void moveViewDown() {
 		if (complexImage != null) {
 			if (continueViewItem.isSelected() && pageMap.size() > 0) {
-				// 连续显示：按页滚动，翻到本章最后一页才换章
+				// 连续显示：按页滚动，翻到本章最后一页问问要不要继续下一章
 				if (continueModel.isAtBottom()) {
-					changePage(true);
+					promptNextChapter();
 				} else {
 					scrollContinue((int) (picPane.getHeight() * 0.9));
 				}
@@ -873,10 +908,53 @@ public class ComicViewer {
 				picStartPoint.y = 0;
 				movePic((int) (picPane.getWidth() * 0.9), 0);
 				picPane.repaint();
+			} else if (pageNo != null && pageNo >= pageMap.size()) {
+				// 本章最后一页了，问一下要不要继续下一章
+				promptNextChapter();
 			} else {
 				// 本页看完了，下一页
 				changePage(true);
 			}
+		}
+	}
+
+	/**
+	 * 已经到本章最后一页了，提示要不要继续下一章。
+	 * 已经是最后一章就说明一下。
+	 */
+	private void promptNextChapter() {
+		if (sectionList == null || sectionList.size() == 0) {
+			try {
+				sectionList = picEngine.getSections(comicId).getSections();
+			} catch (Exception e) {
+				logger.log(e.getMessage(), e);
+				JOptionPane.showMessageDialog(null, "获取章节信息失败 , " + e.getMessage());
+				return;
+			}
+		}
+		if (sectionList == null || sectionList.size() == 0) {
+			JOptionPane.showMessageDialog(null, "没有获取到章节信息");
+			return;
+		}
+		int index = -1;
+		for (int i = 0; i < sectionList.size(); i++) {
+			if (StringUtils.equals(sectionList.get(i).getSectionId(), sectionId)) {
+				index = i;
+				break;
+			}
+		}
+		if (index < 0) {
+			JOptionPane.showMessageDialog(null, "没有匹配到章节信息");
+			return;
+		}
+		if (index >= sectionList.size() - 1) {
+			JOptionPane.showMessageDialog(null, "已经是最后一章");
+			return;
+		}
+		int option = JOptionPane.showConfirmDialog(null, "本章已经看完了，是否继续下一章？", "提示", JOptionPane.YES_NO_OPTION);
+		if (option == JOptionPane.YES_OPTION) {
+			// 换到下一章的第一页
+			changePage(true);
 		}
 	}
 
