@@ -197,6 +197,44 @@ public class ContinuousScrollModelTest {
 	}
 
 	@Test
+	public void 连续下载下的页也要能显示出来() throws Exception {
+		final List<Integer> requested = Collections.synchronizedList(new ArrayList<Integer>());
+		ContinuousScrollModel model = new ContinuousScrollModel(PAGE_COUNT, new ContinuousScrollModel.PageLoader() {
+			@Override
+			public Image load(int pageNo) throws Exception {
+				requested.add(pageNo);
+				// 模拟下载有点慢，让预加载和连续下载撞上
+				Thread.sleep(20);
+				return new BufferedImage(PAGE_WIDTH, PAGE_HEIGHT, BufferedImage.TYPE_INT_RGB);
+			}
+		}, null);
+		model.setContinuousDownload(true);
+		model.reset(1);
+		model.loadPage(1);
+		// 等连续下载的链先把第2页抢到（它下的是整章，一页一页往下）
+		Thread.sleep(200);
+		// 预加载想要的页正好被链下着
+		model.preload();
+
+		// 等一会儿，下一页应该已经在内存里，能画出来
+		boolean shown = false;
+		for (int i = 0; i < 100; i++) {
+			Thread.sleep(50);
+			List<ContinuousScrollModel.VisiblePage> visible = model.getVisiblePages(PANE_WIDTH, PAGE_HEIGHT * 3, 0);
+			for (ContinuousScrollModel.VisiblePage visiblePage : visible) {
+				if (visiblePage.page.pageNo == 2) {
+					shown = true;
+					break;
+				}
+			}
+			if (shown) {
+				break;
+			}
+		}
+		Assert.assertTrue("下一页被连续下载下到磁盘了，但没有放进内存，画不出来", shown);
+	}
+
+	@Test
 	public void 连续下载会把本章都下完() throws Exception {
 		final List<Integer> requested = Collections.synchronizedList(new ArrayList<Integer>());
 		ContinuousScrollModel model = new ContinuousScrollModel(PAGE_COUNT, new ContinuousScrollModel.PageLoader() {

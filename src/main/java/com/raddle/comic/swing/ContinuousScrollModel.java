@@ -81,6 +81,8 @@ class ContinuousScrollModel {
 	private final Map<Integer, Page> pageCache = new ConcurrentHashMap<Integer, Page>();
 	/** 正在加载中的页，避免重复请求 */
 	private final Set<Integer> loadingPages = ConcurrentHashMap.newKeySet();
+	/** 预加载时想要、但还没拿到内存副本的页 */
+	private final Set<Integer> wantedPages = ConcurrentHashMap.newKeySet();
 	/** 连续下载：勾选后下载完一页接着下载下一页 */
 	private volatile boolean continuousDownload = false;
 	/** 连续下载的线程是否已经在跑了，避免起多条链 */
@@ -468,6 +470,12 @@ class ContinuousScrollModel {
 				return false;
 			}
 			failedPages.remove(pageNo);
+			// 这一页等着显示的话，得放进内存，不然画不出来
+			if (wantedPages.remove(pageNo)) {
+				pageCache.put(pageNo, new Page(pageNo, image));
+				applyPendingOffset();
+				notifyPageChanged();
+			}
 			return true;
 		} catch (Exception e) {
 			logger.log(e.getMessage(), e);
@@ -486,7 +494,15 @@ class ContinuousScrollModel {
 			if (p < 1 || p > pageCount) {
 				continue;
 			}
-			if (pageCache.containsKey(p) || !loadingPages.add(p)) {
+			if (pageCache.containsKey(p)) {
+				continue;
+			}
+			// 先记下这一页是要显示的。
+			// 连续下载的链正在下这一页时，它下完会看到这里的标记，把页放进内存，
+			// 不然页只在磁盘上，画不出来。
+			wantedPages.add(p);
+			if (!loadingPages.add(p)) {
+				// 别的线程正在下这一页，跳过
 				continue;
 			}
 			// 失败过的页不自动重试，网站有防刷，一直重试也成功不了。
@@ -503,6 +519,7 @@ class ContinuousScrollModel {
 						loadPage(page);
 					} finally {
 						loadingPages.remove(page);
+						wantedPages.remove(page);
 					}
 				}
 			}, "preload-page-" + page).start();
