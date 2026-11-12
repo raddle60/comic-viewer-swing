@@ -418,6 +418,7 @@ class ContinuousScrollModel {
 		new Thread(new Runnable() {
 			@Override
 			public void run() {
+				logger.log("start continuous download");
 				try {
 					for (int pageNo = fromPage; pageNo <= pageCount; pageNo++) {
 						if (!continuousDownload) {
@@ -430,6 +431,7 @@ class ContinuousScrollModel {
 						}
 						boolean ok;
 						try {
+							logger.log("continuous download ：" + pageNo);
 							ok = downloadPage(pageNo);
 						} finally {
 							loadingPages.remove(pageNo);
@@ -441,6 +443,7 @@ class ContinuousScrollModel {
 					}
 				} finally {
 					continuousDownloading.set(false);
+					logger.log("end continuous download");
 				}
 			}
 		}, "continuous-download").start();
