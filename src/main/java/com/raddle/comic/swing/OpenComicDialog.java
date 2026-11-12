@@ -8,6 +8,7 @@ import java.awt.event.ActionListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.DefaultListCellRenderer;
@@ -336,6 +337,10 @@ public class OpenComicDialog extends JDialog {
 			ComicInfo comicInfo = pluginEngine.getSections(comicIdTxt.getText());
 			if (comicInfo != null) {
 				comicNameLeb.setText(StringUtils.defaultString(comicInfo.getComicName()));
+				// 章节列表也填上，跟手动打开漫画时一样
+				for (SectionInfo sectionInfo : comicInfo.getSections()) {
+					sectionListModel.addElement(sectionInfo);
+				}
 				List<SectionInfo> sections = comicInfo.getSections();
 				if (sections != null && sections.size() > 0) {
 					int matchedIndex = -1;
@@ -396,6 +401,17 @@ public class OpenComicDialog extends JDialog {
 			pageNoBox.addItem(pageInfo);
 		}
 		return true;
+	}
+
+	/**
+	 * 章节列表，顺序跟窗口里显示的一样。
+	 */
+	public List<SectionInfo> getSections() {
+		List<SectionInfo> sections = new ArrayList<SectionInfo>();
+		for (int i = 0; i < sectionListModel.size(); i++) {
+			sections.add(sectionListModel.get(i));
+		}
+		return sections;
 	}
 
 	public ChannelInfo getChannelInfo() {

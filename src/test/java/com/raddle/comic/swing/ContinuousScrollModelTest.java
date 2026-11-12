@@ -82,7 +82,7 @@ public class ContinuousScrollModelTest {
 
 	@Test
 	public void 页加载出来后位置不变() {
-		final List<Integer> loaded = new ArrayList<Integer>();
+		final List<Integer> loaded = Collections.synchronizedList(new ArrayList<Integer>());
 		ContinuousScrollModel model = new ContinuousScrollModel(PAGE_COUNT, new ContinuousScrollModel.PageLoader() {
 			@Override
 			public boolean isCached(int pageNo) {
@@ -154,7 +154,7 @@ public class ContinuousScrollModelTest {
 
 	@Test
 	public void 加载失败的页不会自动重试() throws Exception {
-		final List<Integer> requested = new ArrayList<Integer>();
+		final List<Integer> requested = Collections.synchronizedList(new ArrayList<Integer>());
 		ContinuousScrollModel model = new ContinuousScrollModel(PAGE_COUNT, new ContinuousScrollModel.PageLoader() {
 			@Override
 			public boolean isCached(int pageNo) {
@@ -190,7 +190,7 @@ public class ContinuousScrollModelTest {
 
 	@Test
 	public void 用户移动图片后才重试失败的页() throws Exception {
-		final List<Integer> requested = new ArrayList<Integer>();
+		final List<Integer> requested = Collections.synchronizedList(new ArrayList<Integer>());
 		ContinuousScrollModel model = new ContinuousScrollModel(PAGE_COUNT, new ContinuousScrollModel.PageLoader() {
 			@Override
 			public boolean isCached(int pageNo) {
@@ -347,6 +347,50 @@ public class ContinuousScrollModelTest {
 	}
 
 	@Test
+	public void 滚过本章末尾会被挡住() {
+		ContinuousScrollModel model = new ContinuousScrollModel(PAGE_COUNT, loader(), null);
+		model.reset(PAGE_COUNT);
+		model.loadPage(PAGE_COUNT);
+		for (int i = 0; i < 100; i++) {
+			model.scroll(50);
+			// 还没到末尾的时候不该算被挡住
+			if (!model.isAtBottom()) {
+				Assert.assertFalse("还没到章末就不该算被挡住", model.isBlockedAtEnd());
+			}
+		}
+		Assert.assertTrue("应该到本章末尾了", model.isAtBottom());
+		// 再往章末外面拉，就要报被挡住了
+		model.scroll(50);
+		Assert.assertTrue("滚过章末应该被挡住", model.isBlockedAtEnd());
+		// 往回滚就不算被挡了
+		model.scroll(-50);
+		Assert.assertFalse("往回滚不算被挡住", model.isBlockedAtEnd());
+	}
+
+	@Test
+	public void 章节列表是倒序的下一章在前面() {
+		// 站点返回的章节是倒序的，最新的一话在最前面
+		List<com.raddle.comic.engine.SectionInfo> sections = new java.util.ArrayList<com.raddle.comic.engine.SectionInfo>();
+		String[] ids = {"3", "2", "1"};
+		for (String id : ids) {
+			com.raddle.comic.engine.SectionInfo sectionInfo = new com.raddle.comic.engine.SectionInfo();
+			sectionInfo.setSectionId(id);
+			sectionInfo.setName(id);
+			sections.add(sectionInfo);
+		}
+		// 第2章的下一章是第3章，在列表里是往前一个
+		Assert.assertEquals("3", ComicViewer.getAdjacentSection(sections, "2", true).getSectionId());
+		// 第2章的上一章是第1章，在列表里是往后一个
+		Assert.assertEquals("1", ComicViewer.getAdjacentSection(sections, "2", false).getSectionId());
+		// 最新的一章没有下一章了
+		Assert.assertNull("最新的一章不该有下一章", ComicViewer.getAdjacentSection(sections, "3", true));
+		// 最旧的一章没有上一章了
+		Assert.assertNull("最旧的一章不该有上一章", ComicViewer.getAdjacentSection(sections, "1", false));
+		// 找不到当前章节
+		Assert.assertNull(ComicViewer.getAdjacentSection(sections, "9", true));
+	}
+
+	@Test
 	public void 连续下载会把本章都下完() throws Exception {
 		final List<Integer> requested = Collections.synchronizedList(new ArrayList<Integer>());
 		ContinuousScrollModel model = new ContinuousScrollModel(PAGE_COUNT, new ContinuousScrollModel.PageLoader() {
@@ -473,7 +517,7 @@ public class ContinuousScrollModelTest {
 
 	@Test
 	public void 预加载会请求没加载的页() {
-		final List<Integer> requested = new ArrayList<Integer>();
+		final List<Integer> requested = Collections.synchronizedList(new ArrayList<Integer>());
 		ContinuousScrollModel model = new ContinuousScrollModel(PAGE_COUNT, new ContinuousScrollModel.PageLoader() {
 			@Override
 			public boolean isCached(int pageNo) {

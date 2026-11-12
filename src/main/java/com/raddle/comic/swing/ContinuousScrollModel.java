@@ -26,6 +26,8 @@ class ContinuousScrollModel {
 
 	/** 页与页之间的间隔 */
 	static final int INTERVAL_HEIGHT = 5;
+	/** 这次滚动是不是被本章末尾挡住了 */
+	private boolean blockedAtEnd = false;
 	/** 实际用的间隔，"无缝显示"时为0 */
 	private int intervalHeight = INTERVAL_HEIGHT;
 	/** 预加载半径，当前页前后各预加载几页 */
@@ -132,6 +134,8 @@ class ContinuousScrollModel {
 		failedPages.clear();
 		downloadedTo = 0;
 		chapterDownloaded = false;
+		// 换章了，之前记着的滚动距离也要清掉，不然新的一章会往下偏一点
+		pendingOffset = 0;
 		scrollPage = pageNo;
 		scrollOffset = 0;
 	}
@@ -150,6 +154,7 @@ class ContinuousScrollModel {
 	synchronized void scroll(int delta) {
 		int oldPage = scrollPage;
 		int oldOffset = scrollOffset;
+		blockedAtEnd = false;
 		scrollOffset = scrollOffset + (int) (delta / scale);
 		normalizeScroll();
 		// 失败的页不会自动重试，网站有防刷，一直重试也成功不了。
@@ -180,6 +185,10 @@ class ContinuousScrollModel {
 				if (scrollOffset > maxOffset) {
 					pendingOffset = pendingOffset + (scrollOffset - maxOffset);
 					scrollOffset = maxOffset;
+				}
+				if (scrollPage >= pageCount) {
+					// 已经是本章最后一页了，用户还在往章末外面拉
+					blockedAtEnd = true;
 				}
 				break;
 			}
@@ -314,6 +323,11 @@ class ContinuousScrollModel {
 			}
 		}
 		return null;
+	}
+
+	/** 这次滚动是不是被本章末尾挡住了 */
+	boolean isBlockedAtEnd() {
+		return blockedAtEnd;
 	}
 
 	/** 是否已经翻到本章最后一页的底部 */

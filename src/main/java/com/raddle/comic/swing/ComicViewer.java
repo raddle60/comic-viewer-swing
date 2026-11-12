@@ -719,8 +719,9 @@ public class ComicViewer {
 		if (moved) {
 			// 位置动了，下次到底了还能再提示
 			nextChapterPromptShown = false;
-		} else if (delta > 0 && continueModel.isAtBottom() && !nextChapterPromptShown) {
-			// 已经到本章最后一页了，用户还在往下拉，问一下要不要继续下一章
+		}
+		if (continueModel.isBlockedAtEnd() && !nextChapterPromptShown) {
+			// 已经到本章最后一页了，用户还在往章末外面拉，问一下要不要继续下一章
 			nextChapterPromptShown = true;
 			promptNextChapter();
 		}
@@ -845,50 +846,32 @@ public class ComicViewer {
 					pageNo = nextPageNo;
 					success = true;
 				} else {
-					if (sectionList == null || sectionList.size() == 0) {
-						try {
-							ComicInfo comicInfo = picEngine.getSections(comicId);
-							sectionList = comicInfo.getSections();
-						} catch (Exception e1) {
-							logger.log(e1.getMessage(), e1);
-							JOptionPane.showMessageDialog(null, "获取章节信息失败 , " + e1.getMessage());
+					// 本章没有下一页了，换章
+					SectionInfo nextSection = getAdjacentSection(isNextPage);
+					if (nextSection == null) {
+						if (isFullScreen) {
+							exitFullScreen();
 						}
-					}
-					if (sectionList == null || sectionList.size() == 0) {
-						JOptionPane.showMessageDialog(null, "没有获取到章节信息");
+						JOptionPane.showMessageDialog(null, isNextPage ? "已是最后一章" : "已是第一章");
 						return;
 					}
-					for (int i = 0; i < sectionList.size(); i++) {
-						SectionInfo sectionInfo = sectionList.get(i);
-						if (StringUtils.equals(sectionInfo.getSectionId(), sectionId)) {
-							if (isNextPage ? i < sectionList.size() - 1 : i > 0) {
-								sectionId = sectionList.get(isNextPage ? i + 1 : i - 1).getSectionId();
-								sectionName = sectionList.get(isNextPage ? i + 1 : i - 1).getName();
-								pageMap.clear();
-								try {
-									List<PageInfo> pages = picEngine.getPages(comicId, sectionId);
-									for (PageInfo pageInfo1 : pages) {
-										pageMap.put(pageInfo1.getPageNo(), pageInfo1);
-									}
-									pageNo = isNextPage ? 1 : pageMap.size();
-									// 换章了，缓存里还是上一章的图片，要清掉
-									continueModel.setPageCount(pageMap.size());
-									continueModel.reset(pageNo);
-									success = true;
-								} catch (Exception e1) {
-									logger.log(e1.getMessage(), e1);
-									JOptionPane.showMessageDialog(null, "获取页面信息失败 , " + e1.getMessage());
-								}
-							} else {
-								if (isFullScreen) {
-									exitFullScreen();
-								}
-								JOptionPane.showMessageDialog(null, isNextPage ? "已是最后一章" : "已是第一章");
-							}
-							return;
+					sectionId = nextSection.getSectionId();
+					sectionName = nextSection.getName();
+					pageMap.clear();
+					try {
+						List<PageInfo> pages = picEngine.getPages(comicId, sectionId);
+						for (PageInfo pageInfo1 : pages) {
+							pageMap.put(pageInfo1.getPageNo(), pageInfo1);
 						}
+						pageNo = isNextPage ? 1 : pageMap.size();
+						// 换章了，缓存里还是上一章的图片，要清掉
+						continueModel.setPageCount(pageMap.size());
+						continueModel.reset(pageNo);
+						success = true;
+					} catch (Exception e1) {
+						logger.log(e1.getMessage(), e1);
+						JOptionPane.showMessageDialog(null, "获取页面信息失败 , " + e1.getMessage());
 					}
-					JOptionPane.showMessageDialog(null, "没有匹配到章节信息");
 					return;
 				}
 			} finally {
@@ -979,35 +962,74 @@ public class ComicViewer {
 	}
 
 	/**
-	 * 已经到本章最后一页了，提示要不要继续下一章。
-	 * 已经是最后一章就说明一下。
+	 * 章节列表。优先用弹出窗口里的，窗口里没有再自己取一次。
 	 */
-	private void promptNextChapter() {
+	private List<SectionInfo> getSectionList() {
+		List<SectionInfo> sections = openComicDialog.getSections();
+		if (sections != null && sections.size() > 0) {
+			return sections;
+		}
 		if (sectionList == null || sectionList.size() == 0) {
 			try {
 				sectionList = picEngine.getSections(comicId).getSections();
 			} catch (Exception e) {
 				logger.log(e.getMessage(), e);
-				JOptionPane.showMessageDialog(null, "获取章节信息失败 , " + e.getMessage());
-				return;
 			}
 		}
-		if (sectionList == null || sectionList.size() == 0) {
-			JOptionPane.showMessageDialog(null, "没有获取到章节信息");
-			return;
+		return sectionList;
+	}
+
+	/**
+	 * 找当前章节相邻的章节。
+	 *
+	 * @param isNext true找下一章，false找上一章
+	 * @return 相邻的章节，没有了返回null
+	 */
+	private SectionInfo getAdjacentSection(boolean isNext) {
+		return getAdjacentSection(getSectionList(), sectionId, isNext);
+	}
+
+	/**
+	 * 根据章节列表找相邻的章节。
+	 * 章节列表是倒序的（最新的一话在最前面），所以下一章在列表里是往前一个。
+	 *
+	 * @param sections 章节列表
+	 * @param sectionId 当前章节
+	 * @param isNext true找下一章，false找上一章
+	 * @return 相邻的章节，没有了返回null
+	 */
+	static SectionInfo getAdjacentSection(List<SectionInfo> sections, String sectionId, boolean isNext) {
+		if (sections == null || sections.size() == 0) {
+			return null;
 		}
 		int index = -1;
-		for (int i = 0; i < sectionList.size(); i++) {
-			if (StringUtils.equals(sectionList.get(i).getSectionId(), sectionId)) {
+		for (int i = 0; i < sections.size(); i++) {
+			if (StringUtils.equals(sections.get(i).getSectionId(), sectionId)) {
 				index = i;
 				break;
 			}
 		}
 		if (index < 0) {
-			JOptionPane.showMessageDialog(null, "没有匹配到章节信息");
+			return null;
+		}
+		int next = isNext ? index - 1 : index + 1;
+		if (next < 0 || next >= sections.size()) {
+			return null;
+		}
+		return sections.get(next);
+	}
+
+	/**
+	 * 已经到本章最后一页了，提示要不要继续下一章。
+	 * 已经是最后一章就说明一下。
+	 */
+	private void promptNextChapter() {
+		List<SectionInfo> sections = getSectionList();
+		if (sections == null || sections.size() == 0) {
+			JOptionPane.showMessageDialog(null, "没有获取到章节信息");
 			return;
 		}
-		if (index >= sectionList.size() - 1) {
+		if (getAdjacentSection(sections, sectionId, true) == null) {
 			JOptionPane.showMessageDialog(null, "已经是最后一章");
 			return;
 		}
