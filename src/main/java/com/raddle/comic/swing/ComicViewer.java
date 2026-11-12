@@ -145,6 +145,14 @@ public class ComicViewer {
 	private Map<String,String> comicUpdate = new HashMap<String, String>();
 	/** 已经提示过要不要继续下一章了，位置动了就重新提示 */
 	private boolean nextChapterPromptShown = false;
+	/** 滚轮一格滚动的距离 */
+	private static final int WHEEL_SCROLL_DISTANCE = 150;
+	/** 平滑滚动时每一帧最多移动多少像素 */
+	private static final int SMOOTH_SCROLL_SPEED = 40;
+	/** 平滑滚动还没走完的距离 */
+	private int smoothScrollTarget = 0;
+	/** 平滑滚动的动画定时器 */
+	private javax.swing.Timer smoothScrollTimer;
 
 	/**
 	 * Launch the application.
@@ -440,23 +448,16 @@ public class ComicViewer {
 		picPane.addMouseWheelListener(new MouseWheelListener() {
 			@Override
 			public void mouseWheelMoved(MouseWheelEvent e) {
-				if (continueViewItem.isSelected() && pageMap.size() > 0) {
-					// 连续显示：按"页码+页内偏移"滚动，位置不会因为长图重建而跳
-					if (e.getWheelRotation() == 1) {
-						scrollContinue(50);
-					}
-					if (e.getWheelRotation() == -1) {
-						scrollContinue(-50);
-					}
-				} else {
-					if (e.getWheelRotation() == 1) {
-						movePic(0, -50);
-					}
-					if (e.getWheelRotation() == -1) {
-						movePic(0, 50);
-					}
+				// 高精度滚轮一格会分成很多小事件，用precise的才准
+				double rotation = e.getPreciseWheelRotation();
+				if (rotation == 0) {
+					rotation = e.getWheelRotation();
 				}
-				picPane.repaint();
+				if (rotation == 0) {
+					return;
+				}
+				// 正数表示滚轮向下
+				wheelScroll((int) Math.round(rotation * WHEEL_SCROLL_DISTANCE));
 			}
 		});
 		frame.getContentPane().add(picPane, BorderLayout.CENTER);
@@ -466,6 +467,8 @@ public class ComicViewer {
 				int changedX = e.getPoint().x - pressedPoint.x;
 				int changedY = e.getPoint().y - pressedPoint.y;
 				pressedPoint = e.getPoint();
+				// 拖动的时候停掉滚轮的平滑滚动，免得两个一起动
+				stopSmoothScroll();
 				if (continueViewItem.isSelected() && pageMap.size() > 0) {
 					// 连续显示：纵向按"页码+页内偏移"滚动，横向单独处理
 					movePicHorizontalContinue(changedX);
@@ -481,6 +484,8 @@ public class ComicViewer {
 			public void mousePressed(MouseEvent e) {
 				picPane.setCursor(new Cursor(Cursor.MOVE_CURSOR));
 				pressedPoint = e.getPoint();
+				// 按下鼠标就停掉滚轮的平滑滚动
+				stopSmoothScroll();
 			}
 
 			@Override
@@ -602,6 +607,61 @@ public class ComicViewer {
 	/** 当前显示的图片宽度 */
 	private int getDisplayWidth() {
 		return complexImage == null ? 0 : complexImage.getWidth(null);
+	}
+
+	/**
+	 * 滚轮滚动。距离累加起来，用动画慢慢走过去，比一格一格跳顺。
+	 *
+	 * @param distance 正数表示向下滚
+	 */
+	private void wheelScroll(int distance) {
+		smoothScrollTarget = smoothScrollTarget + distance;
+		startSmoothScroll();
+	}
+
+	/** 启动平滑滚动的动画 */
+	private void startSmoothScroll() {
+		if (smoothScrollTimer == null) {
+			smoothScrollTimer = new javax.swing.Timer(16, new ActionListener() {
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					if (smoothScrollTarget == 0) {
+						smoothScrollTimer.stop();
+						return;
+					}
+					int step = smoothScrollTarget / 4;
+					if (step > SMOOTH_SCROLL_SPEED) {
+						step = SMOOTH_SCROLL_SPEED;
+					}
+					if (step < 0 - SMOOTH_SCROLL_SPEED) {
+						step = 0 - SMOOTH_SCROLL_SPEED;
+					}
+					if (step == 0) {
+						// 剩的不多了，直接到位
+						step = smoothScrollTarget;
+					}
+					smoothScrollTarget = smoothScrollTarget - step;
+					if (continueViewItem.isSelected() && pageMap.size() > 0) {
+						scrollContinue(step);
+					} else {
+						// 非连续显示：往下滚内容要往上移
+						movePic(0, 0 - step);
+						picPane.repaint();
+					}
+				}
+			});
+		}
+		if (!smoothScrollTimer.isRunning()) {
+			smoothScrollTimer.start();
+		}
+	}
+
+	/** 停止平滑滚动，鼠标拖动的时候用 */
+	private void stopSmoothScroll() {
+		smoothScrollTarget = 0;
+		if (smoothScrollTimer != null && smoothScrollTimer.isRunning()) {
+			smoothScrollTimer.stop();
+		}
 	}
 
 	/**
