@@ -17,11 +17,10 @@ var channel = {
 function getSections(comicId) {
 	var content = httpclient.getRemotePage("https://www.dingmanhua.com/comic/" + comicId + ".html", "utf-8", {});
 	var doc = parseHtml(content)
-	var comicNameRegex = new RegExp("<h1 class=\"manga-title\" id=\"mangaTitle\" style=\"white-space:pre-line;\" itemprop=\"name\">([^<>]+)</h1>");
 	var comicName = "";
-	var comicMatched = content.match(comicNameRegex);
-	if(comicMatched != null){
-		comicName = comicMatched[1];
+	var comicTitleH1 = doc.query("#mangaTitle");
+	if(comicTitleH1 != null){
+		comicName = comicTitleH1.text();
 	}
 	var section_A_list = doc.select("a.pseudo.chaper-btn");
 	var sections = [];
