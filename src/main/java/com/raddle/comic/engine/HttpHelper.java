@@ -17,6 +17,9 @@ import org.apache.http.HttpEntity;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.ContentType;
+import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
@@ -90,6 +93,53 @@ public class HttpHelper {
 			}
 		}
 		CloseableHttpResponse response = httpclient.execute(httpGet);
+		try {
+			HttpEntity entity1 = response.getEntity();
+			if (response.getStatusLine().getStatusCode() == 200) {
+				return EntityUtils.toString(entity1, charset);
+			} else {
+				EntityUtils.consume(entity1);
+				throw new RuntimeException("获得内容失败:" + response.getStatusLine() + " , " + url);
+			}
+		} finally {
+			response.close();
+		}
+	}
+
+	/**
+	 * 用 POST 方式访问远程网页，使用默认超时。
+	 *
+	 * @param url 地址
+	 * @param charset 编码
+	 * @param headers 请求头
+	 * @param body 请求体
+	 * @return 网页内容
+	 */
+	public static String postRemotePage(String url, String charset, Map<Object, Object> headers, String body) throws IOException {
+		return postRemotePage(url, charset, headers, body, null);
+	}
+
+	/**
+	 * 用 POST 方式访问远程网页。
+	 *
+	 * @param url 地址
+	 * @param charset 编码
+	 * @param headers 请求头
+	 * @param body 请求体
+	 * @param soTimeoutSec 读取超时秒数，传数字表示本次请求的超时时间；不传（null / undefined）或者小于等于 0 时使用默认超时
+	 * @return 网页内容
+	 */
+	public static String postRemotePage(String url, String charset, Map<Object, Object> headers, String body, Object soTimeoutSec) throws IOException {
+		HttpPost httpPost = new HttpPost(url);
+		httpPost.setConfig(requestConfig(soTimeoutSec));
+		// 有些站点（顶漫画）用 POST + json 取章节列表，Content-Type 必须是 application/json
+		httpPost.setEntity(new StringEntity(body == null ? "" : body, ContentType.APPLICATION_JSON));
+		if (headers != null) {
+			for (Map.Entry<Object, Object> entry : headers.entrySet()) {
+				httpPost.addHeader(entry.getKey() + "", entry.getValue() + "");
+			}
+		}
+		CloseableHttpResponse response = httpclient.execute(httpPost);
 		try {
 			HttpEntity entity1 = response.getEntity();
 			if (response.getStatusLine().getStatusCode() == 200) {
