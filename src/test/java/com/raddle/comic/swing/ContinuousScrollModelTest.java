@@ -182,7 +182,7 @@ public class ContinuousScrollModelTest {
 		// 失败后预加载不能再自动去试它
 		int before = count(requested, 2);
 		for (int i = 0; i < 20; i++) {
-			model.preload();
+			model.preload(PANE_HEIGHT);
 		}
 		Thread.sleep(200);
 		Assert.assertEquals("失败的页被自动重试了", before, count(requested, 2));
@@ -216,7 +216,7 @@ public class ContinuousScrollModelTest {
 		// 用户移动了图片，报错要马上更新成"正在加载"，失败的页也可以再试一次
 		model.scroll(50);
 		Assert.assertNull("用户移动图片后报错没有更新", model.getFailedReason());
-		model.preload();
+		model.preload(PANE_HEIGHT);
 		Thread.sleep(200);
 		Assert.assertTrue("用户移动图片后应该重试一次", count(requested, 2) > before);
 	}
@@ -244,7 +244,7 @@ public class ContinuousScrollModelTest {
 		// 等连续下载的链先把第2页抢到（它下的是整章，一页一页往下）
 		Thread.sleep(200);
 		// 预加载想要的页正好被链下着
-		model.preload();
+		model.preload(PANE_HEIGHT);
 
 		// 等一会儿，下一页应该已经在内存里，能画出来
 		boolean shown = false;
@@ -309,7 +309,7 @@ public class ContinuousScrollModelTest {
 		// 预加载还是会把当前页附近的页读进内存，那没关系，但不能读到整章。
 		Thread.sleep(200);
 		loaded.clear();
-		model.preload();
+		model.preload(PANE_HEIGHT);
 		Thread.sleep(300);
 		int maxPage = 0;
 		for (Integer pageNo : loaded) {
@@ -495,6 +495,43 @@ public class ContinuousScrollModelTest {
 	}
 
 	@Test
+	public void 预加载是按顺序下的页() throws Exception {
+		final List<Integer> order = Collections.synchronizedList(new ArrayList<Integer>());
+		ContinuousScrollModel model = new ContinuousScrollModel(PAGE_COUNT, new ContinuousScrollModel.PageLoader() {
+			@Override
+			public boolean isCached(int pageNo) {
+				return false;
+			}
+
+			@Override
+			public Image load(int pageNo) throws Exception {
+				order.add(pageNo);
+				// 每页花的时间不一样，并行下载的话完成顺序就是乱的，能看出来
+				Thread.sleep((pageNo % 3) * 20);
+				return new BufferedImage(PAGE_WIDTH, PAGE_HEIGHT, BufferedImage.TYPE_INT_RGB);
+			}
+		}, null);
+		model.reset(5);
+		model.loadPage(5);
+		model.preload(PANE_HEIGHT);
+
+		for (int i = 0; i < 200 && order.size() < 7; i++) {
+			Thread.sleep(20);
+		}
+		// 后面的页要按顺序下，视口里的页才是连着的
+		List<Integer> ahead = new ArrayList<Integer>();
+		for (Integer pageNo : order) {
+			if (pageNo.intValue() > 5) {
+				ahead.add(pageNo);
+			}
+		}
+		Assert.assertTrue("应该预加载了后面的页: " + order, ahead.size() >= 3);
+		for (int i = 1; i < ahead.size(); i++) {
+			Assert.assertTrue("后面的页应该按顺序下: " + order, ahead.get(i).intValue() > ahead.get(i - 1).intValue());
+		}
+	}
+
+	@Test
 	public void 缩放后图片大小跟着变() {
 		ContinuousScrollModel model = new ContinuousScrollModel(PAGE_COUNT, loader(), null);
 		model.reset(1);
@@ -545,7 +582,7 @@ public class ContinuousScrollModelTest {
 			}
 		}, null);
 		model.reset(5);
-		model.preload();
+		model.preload(PANE_HEIGHT);
 		// 预加载是后台线程，等它们都跑完
 		for (int i = 0; i < 200 && requested.size() < 7; i++) {
 			try {

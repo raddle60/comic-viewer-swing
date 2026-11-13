@@ -98,6 +98,8 @@ class ContinuousScrollModel {
 	private final Map<Integer, Page> pageCache = new ConcurrentHashMap<Integer, Page>();
 	/** 正在加载中的页，避免重复请求 */
 	private final Set<Integer> loadingPages = ConcurrentHashMap.newKeySet();
+	/** 预加载的线程，按顺序一页一页下 */
+	private Thread preloadThread;
 	/** 预加载时想要、但还没拿到内存副本的页 */
 	private final Set<Integer> wantedPages = ConcurrentHashMap.newKeySet();
 	/** 连续下载：勾选后下载完一页接着下载下一页 */
@@ -549,41 +551,92 @@ class ContinuousScrollModel {
 	/**
 	 * 后台预加载当前页前后若干页，滚到边界时就不用等网络。
 	 */
-	void preload() {
-		int center = scrollPage;
-		for (int p = center - preloadRadius; p <= center + preloadRadius; p++) {
-			if (p < 1 || p > pageCount) {
-				continue;
-			}
-			if (pageCache.containsKey(p)) {
-				continue;
-			}
-			// 先记下这一页是要显示的。
-			// 连续下载的链正在下这一页时，它下完会看到这里的标记，把页放进内存，
-			// 不然页只在磁盘上，画不出来。
-			wantedPages.add(p);
-			if (!loadingPages.add(p)) {
-				// 别的线程正在下这一页，跳过
-				continue;
-			}
-			// 失败过的页不自动重试，网站有防刷，一直重试也成功不了。
-			// 等用户滚动到这一页时再试。
-			if (failedPages.containsKey(p)) {
-				loadingPages.remove(p);
-				continue;
-			}
-			final int page = p;
-			new Thread(new Runnable() {
-				@Override
-				public void run() {
+	/**
+	 * 预加载当前页前后几页。
+	 *
+	 * 按顺序一页一页下，先下后面的再下前面的。视口里的页得是一页一页连着的，
+	 * 中间缺一页的话，后面下好了的页也画不出来，会露出一段空白。
+	 *
+	 * @param viewportHeight 窗口高度，用来算要预加载几页
+	 */
+	void preload(int viewportHeight) {
+		if (preloadThread != null && preloadThread.isAlive()) {
+			// 已经有一个在下了，等它下完
+			return;
+		}
+		preloadThread = new Thread(new Runnable() {
+			@Override
+			public void run() {
+				for (int round = 0; round < 100; round++) {
+					// 每轮都重新取当前位置，用户边滚边下也能跟上
+					int center = scrollPage;
+					int radius = getPreloadRadius(viewportHeight);
+					boolean allLoaded = true;
+					// 先下后面的
+					for (int p = center + 1; p <= center + radius; p++) {
+						allLoaded = allLoaded && loadOnePage(p);
+					}
+					// 再下前面的
+					for (int p = center - 1; p >= center - radius; p--) {
+						allLoaded = allLoaded && loadOnePage(p);
+					}
+					if (allLoaded) {
+						break;
+					}
 					try {
-						loadPage(page);
-					} finally {
-						loadingPages.remove(page);
-						wantedPages.remove(page);
+						Thread.sleep(50);
+					} catch (InterruptedException e) {
+						break;
 					}
 				}
-			}, "preload-page-" + page).start();
+			}
+		}, "preload-pages");
+		preloadThread.start();
+	}
+
+	/**
+	 * 预加载一页。
+	 *
+	 * @return 这一页已经拿到了返回true，还在下或者下不下来返回false
+	 */
+	private boolean loadOnePage(int pageNo) {
+		if (pageNo < 1 || pageNo > pageCount) {
+			return true;
 		}
+		if (pageCache.containsKey(pageNo)) {
+			return true;
+		}
+		// 失败过的页不自动重试，网站有防刷，一直重试也成功不了。
+		// 等用户滚动到这一页时再试。
+		if (failedPages.containsKey(pageNo)) {
+			return true;
+		}
+		// 先记下这一页是要显示的。
+		// 连续下载的链正在下这一页时，它下完会看到这里的标记，把页放进内存，
+		// 不然页只在磁盘上，画不出来。
+		wantedPages.add(pageNo);
+		if (!loadingPages.add(pageNo)) {
+			// 别的线程正在下这一页
+			return false;
+		}
+		try {
+			loadPage(pageNo);
+		} finally {
+			loadingPages.remove(pageNo);
+		}
+		return true;
+	}
+
+	/** 要预加载几页，缩得越小一屏要看的页越多 */
+	private int getPreloadRadius(int viewportHeight) {
+		int radius = preloadRadius;
+		Page cur = getCurPage();
+		if (cur != null && cur.height > 0 && scale > 0) {
+			int pageHeight = (int) (cur.height * scale);
+			if (pageHeight > 0) {
+				radius = Math.max(radius, viewportHeight / pageHeight + 1);
+			}
+		}
+		return radius;
 	}
 }

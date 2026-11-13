@@ -754,7 +754,7 @@ public class ComicViewer {
 			nextChapterPromptShown = true;
 			promptNextChapter();
 		}
-		continueModel.preload();
+		continueModel.preload(picPane.getHeight());
 		updateContinueTitle();
 		picPane.repaint();
 	}
@@ -850,7 +850,7 @@ public class ComicViewer {
 									// 连续显示：定位到当前页，把这一页加载出来就能画
 									continueModel.gotoPage(pageNo);
 									continueModel.loadPage(pageNo);
-									continueModel.preload();
+									continueModel.preload(picPane.getHeight());
 									updateContinueScale();
 									picPane.repaint();
 								} else {
