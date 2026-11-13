@@ -65,7 +65,7 @@ com.raddle.comic
 - The scroll position is **page number + offset within that page**, never an offset into a stitched image. That is what makes it stable: rebuilding the image, a page finishing its download, or switching chapters cannot move the content.
 - Pages are drawn one by one (`getVisiblePages`), not stitched into one tall bitmap. A page that is not loaded yet is simply not drawn and the model keeps the position, so it drops in when it arrives without a jump.
 - `preload(viewportHeight)` downloads pages **in order** (forward pages first, then backward ones). Loading them in parallel let them finish out of order, and the first gap in the middle hid every page after it — that showed up as a blank band under the current page.
-- `getAdjacentSection` finds the neighbouring chapter. The chapter list is **newest-first** (site order), so the next chapter is the one *before* it in the list. The viewer takes the list from `OpenComicDialog.getSections()` so both use the same order.
+- `getAdjacentSection` finds the neighbouring chapter. The chapter list is **newest-first** (site order), so the next chapter is the one *before* it in the list. The viewer takes the list from `OpenComicDialog.getSections()` so both use the same order. The newest chapter is therefore the **first** element of the list — `OpenComicDialog` (default chapter, "最后章节" label) and the startup update check all use `sections.get(0)`.
 - Switching chapters only happens after the new pages are fetched successfully; on failure the viewer stays put and can retry.
 
 ### Plugin contract (`channels/*.js`)
@@ -74,7 +74,7 @@ Each file defines a global `channel` object and four functions. `ComicPluginEngi
 
 | Global | What it is |
 |---|---|
-| `httpclient` | `HttpHelper` — `getRemotePage(url, charset, headers)`, `saveRemoteImage(channel, comicId, sectionId, imageUrl, cacheFileName, headers)`, `saveRemotePage(url, headers, file)`。这三个方法都另有一个末尾多带 `soTimeoutSec` 的重载：传数字表示本次请求的读取超时秒数，不传（`null` / `undefined`）或小于等于 0 时用默认超时 5 秒 |
+| `httpclient` | `HttpHelper` — `getRemotePage(url, charset, headers)`, `postRemotePage(url, charset, headers, body)`, `saveRemoteImage(channel, comicId, sectionId, imageUrl, cacheFileName, headers)`, `saveRemotePage(url, headers, file)`。这几个方法都另有一个末尾多带 `soTimeoutSec` 的重载：传数字表示本次请求的读取超时秒数，不传（`null` / `undefined`）或小于等于 0 时用默认超时 5 秒。`postRemotePage` 的请求体是字符串，`Content-Type` 固定是 `application/json` |
 | `engine` | the `ComicPluginEngine` itself — used as `engine.eval(scope, script)` to run obfuscated/packed JS snippets scraped from a site and read the resulting object; `engine.parseHtml(html)` returns a DOM document |
 | `log` | slf4j logger named `ChannelJs` |
 | `parseHtml` | global function injected by `src/main/resources/dom.js` — `parseHtml(html)` parses HTML and returns a DOM document (same as `engine.parseHtml`) |
@@ -87,6 +87,8 @@ Functions the engine calls:
 - `channel` → `{ name, home, desc, index }`; `index` orders the channel dropdown
 
 `getPages` may return placeholder `pageUrl`s (e.g. `http://site/1.jpg`) that `loadRemoteImage` later resolves to the real URL — the real download happens in `loadRemoteImage`, not `getPages`.
+
+顶漫画（`channels/dingmanhua.com.js`）的章节列表页面上只列最近的一小部分（26 个），完整的章节列表要用它自己的 ajax 接口取：`POST https://www.dingmanhua.com/comic/{comicId}`，请求体 `{}`，返回 `{"code":0,"data":{"chapters":[{"id":…,"chapterName":…}]}}`。这个接口对请求头敏感，**必须带 `referer`**，否则返回的 json 是坏的。
 
 ### DOM 查询（jsoup）
 

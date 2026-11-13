@@ -559,7 +559,8 @@ public class ComicViewer {
                             }
                         }
                         ComicInfo comicInfo = updateSessionEngine.getSections(recentViewInfo.getComicId());
-                        comicUpdate.put(recentViewInfo.getComicId(), comicInfo.getSections().get(comicInfo.getSections().size() - 1).getSectionId());
+                        // 章节列表是倒序的，最新的一话在第一个
+                        comicUpdate.put(recentViewInfo.getComicId(), comicInfo.getSections().get(0).getSectionId());
                     } catch (Exception e) {
                         comicUpdate.put(recentViewInfo.getComicId(), "failed: " + StringUtils.defaultIfEmpty(e.getMessage(), e.getClass().getSimpleName()));
                     } finally {

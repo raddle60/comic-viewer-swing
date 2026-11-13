@@ -514,7 +514,7 @@ class ContinuousScrollModel {
 						}
 						boolean ok;
 						try {
-							logger.log("continuous download ：" + pageNo);
+							logger.log("continuous download : " + pageNo);
 							ok = downloadPage(pageNo);
 						} finally {
 							loadingPages.remove(pageNo);

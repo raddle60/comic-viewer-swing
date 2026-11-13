@@ -11,32 +11,70 @@ var channel = {
 
 /**
  * 获得章节列表
- * 
+ *
+ * 页面上只列出最近的一小部分章节（顶漫画一页只有 26 个章节），完整的章节列表
+ * 要用它自己的 ajax 接口取：
+ * POST https://www.dingmanhua.com/comic/{comicId}，请求体是 {}
+ * 返回 {"code":0,"data":{"chapters":[{"id":2385665,"chapterName":"第542话",...}]}}
+ * 接口的章节顺序是新的在前，和页面上的顺序一致。
+ * 这个接口对请求头比较敏感，不带 referer 的话返回的 json 是坏的。
+ *
  * @param comicId
  */
 function getSections(comicId) {
-	var content = httpclient.getRemotePage("https://www.dingmanhua.com/comic/" + comicId + ".html", "utf-8", {});
-	var doc = parseHtml(content)
-	var comicName = "";
-	var comicTitleH1 = doc.query("#mangaTitle");
-	if(comicTitleH1 != null){
-		comicName = comicTitleH1.text();
+	var pageContent = null;
+	try {
+		pageContent = String(httpclient.getRemotePage("https://www.dingmanhua.com/comic/" + comicId + ".html", "utf-8", {
+			"referer" : "https://www.dingmanhua.com/"
+		}, 30));
+	} catch (e) {
+		log.info("打开漫画页面失败 comicId[" + comicId + "]", e);
 	}
-	var section_A_list = doc.select("a.pseudo.chaper-btn");
-	var sections = [];
-	if(section_A_list != null && section_A_list.length > 0){
-		for ( var i = 0; i < section_A_list.length; i++) {
-			var sectionId = section_A_list[i].attr("href").match(new RegExp("/" + comicId + "-(\\d+)"))[1];
-			sections.push({
-				sectionId : sectionId,
-				name : section_A_list[i].text()
-			});
+
+	var sections = getSectionsFromApi(comicId);
+
+	var comicName = "";
+	if (pageContent != null) {
+		var doc = parseHtml(pageContent);
+		var comicTitleH1 = doc.query("#mangaTitle");
+		if (comicTitleH1 != null) {
+			comicName = comicTitleH1.text();
 		}
 	}
 	return {
 		comicName : comicName,
 		sections : sections
 	};
+}
+
+/**
+ * 用 ajax 接口取全部章节
+ *
+ * @param comicId
+ * @returns 章节数组，接口不通时返回空数组
+ */
+function getSectionsFromApi(comicId) {
+	var sections = [];
+	try {
+		var headers = {
+			"accept" : "application/json, text/plain, */*",
+			"origin" : "https://www.dingmanhua.com",
+			"referer" : "https://www.dingmanhua.com/comic/" + comicId + ".html"
+		};
+		var content = String(httpclient.postRemotePage("https://www.dingmanhua.com/comic/" + comicId, "utf-8", headers, "{}", 30));
+		var result = JSON.parse(content);
+		var chapters = result.data.chapters;
+		for (var i = 0; i < chapters.length; i++) {
+			sections.push({
+				sectionId : "" + chapters[i].id,
+				name : "" + chapters[i].chapterName
+			});
+		}
+	} catch (e) {
+		log.info("调用章节接口失败 comicId[" + comicId + "]", e);
+		sections = [];
+	}
+	return sections;
 }
 
 /**

@@ -169,7 +169,7 @@ public class OpenComicDialog extends JDialog {
 							return;
 						}
 						if(StringUtils.isEmpty(sectionIdTxt.getText())){
-							sectionIdTxt.setText(sections.get(sections.size() - 1).getSectionId());
+							sectionIdTxt.setText(getLatestSection(sections).getSectionId());
 						}
 						boolean matched = false;
 						int matchedIndex = -1;
@@ -183,9 +183,10 @@ public class OpenComicDialog extends JDialog {
 							}
 						}
 						if (sections.size() > 0) {
-							lastSectionIdLeb.setText("最后章节：" + sections.get(sections.size() - 1).getSectionId());
-							if (StringUtils.isNotBlank(sections.get(sections.size() - 1).getName())) {
-								lastSectionIdLeb.setText(lastSectionIdLeb.getText() + "(名称：" + sections.get(sections.size() - 1).getName() + ")");
+							SectionInfo latestSection = getLatestSection(sections);
+							lastSectionIdLeb.setText("最后章节：" + latestSection.getSectionId());
+							if (StringUtils.isNotBlank(latestSection.getName())) {
+								lastSectionIdLeb.setText(lastSectionIdLeb.getText() + "(名称：" + latestSection.getName() + ")");
 							}
 							for (SectionInfo sectionInfo : sections) {
 								sectionListModel.addElement(sectionInfo);
@@ -351,9 +352,10 @@ public class OpenComicDialog extends JDialog {
 							matchedIndex = i;
 						}
 					}
-					lastSectionIdLeb.setText("最后章节：" + sections.get(sections.size() - 1).getSectionId());
-					if (StringUtils.isNotBlank(sections.get(sections.size() - 1).getName())) {
-						lastSectionIdLeb.setText(lastSectionIdLeb.getText() + "(名称：" + sections.get(sections.size() - 1).getName() + ")");
+					SectionInfo latestSection = getLatestSection(sections);
+					lastSectionIdLeb.setText("最后章节：" + latestSection.getSectionId());
+					if (StringUtils.isNotBlank(latestSection.getName())) {
+						lastSectionIdLeb.setText(lastSectionIdLeb.getText() + "(名称：" + latestSection.getName() + ")");
 					}
 					for (SectionInfo sectionInfo : sections) {
 						sectionListModel.addElement(sectionInfo);
@@ -412,6 +414,17 @@ public class OpenComicDialog extends JDialog {
 			sections.add(sectionListModel.get(i));
 		}
 		return sections;
+	}
+
+	/**
+	 * 最新的一章。
+	 * 站点给的章节列表是倒序的，最新的一话在最前面，所以第一个就是最新的。
+	 *
+	 * @param sections 章节列表
+	 * @return 最新的一章
+	 */
+	private static SectionInfo getLatestSection(List<SectionInfo> sections) {
+		return sections.get(0);
 	}
 
 	public ChannelInfo getChannelInfo() {
