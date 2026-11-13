@@ -161,6 +161,8 @@ public class ComicViewer {
 	private boolean nextChapterPromptShown = false;
 	/** 滚轮一格滚动的距离 */
 	private static final int WHEEL_SCROLL_DISTANCE = 150;
+	/** 页码离图片右边留的间隙 */
+	private static final int PAGE_RIGHT_GAP = 10;
 	/** 平滑滚动时每一帧最多移动多少像素 */
 	private static final int SMOOTH_SCROLL_SPEED = 40;
 	/** 平滑滚动还没走完的距离 */
@@ -394,7 +396,7 @@ public class ComicViewer {
 					if (isFullScreen) {
 						g.setXORMode(Color.WHITE);
                         g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 15));
-						g.drawString(pageNo + "/" + pageMap.size(), this.getWidth() - 50, this.getHeight() - 10);
+						drawPageNo(g, pageNo + "/" + pageMap.size(), this.getWidth(), this.getHeight() - 10);
 						g.drawString(StringUtils.defaultString(sectionName, sectionId), 20, this.getHeight() - 10);
 					}
 				}
@@ -712,6 +714,19 @@ public class ComicViewer {
 	}
 
 	/**
+	 * 画页码。贴着图片的右下角，离右边留10个像素。
+	 *
+	 * @param g 画笔
+	 * @param text 页码文字
+	 * @param right 图片右边的位置
+	 * @param bottom 文字基线的位置
+	 */
+	private void drawPageNo(Graphics g, String text, int right, int bottom) {
+		int textWidth = g.getFontMetrics().stringWidth(text);
+		g.drawString(text, right - PAGE_RIGHT_GAP - textWidth, bottom);
+	}
+
+	/**
 	 * 连续显示：把当前视口里的页一页页画出来。
 	 * 没加载出来的页不画，下面留黑并提示正在加载，加载完直接补上，位置不会变。
 	 */
@@ -725,7 +740,7 @@ public class ComicViewer {
 			drawPage(g, visiblePage, paneWidth, paneHeight);
 			g.setColor(Color.BLACK);
 			g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, pageFontSize()));
-			g.drawString(page.pageNo + "/" + pageMap.size(), visiblePage.x + visiblePage.width - 80,
+			drawPageNo(g, page.pageNo + "/" + pageMap.size(), visiblePage.x + visiblePage.width,
 					visiblePage.y + visiblePage.height - 10);
 		}
 		// 加载失败或者还有页没加载出来，提示一下
