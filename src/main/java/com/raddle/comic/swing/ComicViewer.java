@@ -969,11 +969,6 @@ public class ComicViewer {
 		return loadImage(pageInfo, true);
 	}
 
-	/**
-	 * 加载图片。
-	 *
-	 * @param showError 加载失败时是否弹窗，后台预加载时传 false，避免在非事件线程弹窗
-	 */
 	/** 这一页在本地对应的文件，本地路径就是图片本身，远程地址对应缓存目录里的文件 */
 	private File getLocalFile(PageInfo pageInfo) {
 		// 本地文件 c:/xxx 或者 /xx/xx xxx/xxx
@@ -984,6 +979,39 @@ public class ComicViewer {
 				+ sectionId + "/" + StringUtils.defaultIfBlank(pageInfo.getFilename(), FilenameUtils.getName(pageInfo.getPageUrl())));
 	}
 
+	/**
+	 * 读本地缓存的图片。
+	 *
+	 * 文件如果没下完整（下载中途断掉留下的），读的时候会报EOFException这类错。
+	 * 这时把文件删了，下次才会重新下载；不删的话会一直读这个坏文件，永远自动恢复不了。
+	 */
+	static Image readCachedImage(File cacheFile) throws IOException {
+		try {
+			Image image = ImageIO.read(cacheFile);
+			if (image == null) {
+				deleteCacheFile(cacheFile);
+				throw new IOException("缓存文件损坏，读不出来:" + cacheFile);
+			}
+			return image;
+		} catch (IOException e) {
+			// 损坏的文件删掉，这样才能重新下载
+			deleteCacheFile(cacheFile);
+			throw e;
+		}
+	}
+
+	/** 删掉损坏的缓存文件 */
+	private static void deleteCacheFile(File cacheFile) {
+		if (cacheFile.exists() && !cacheFile.delete()) {
+			logger.log("删除损坏的缓存文件失败 {}", cacheFile);
+		}
+	}
+
+	/**
+	 * 加载图片。
+	 *
+	 * @param showError 加载失败时是否弹窗，后台预加载时传 false，避免在非事件线程弹窗
+	 */
 	private Image loadImage(PageInfo pageInfo, boolean showError) throws IOException {
 		Image img = null;
 		// 本地文件 c:/xxx 或者 /xx/xx xxx/xxx
@@ -993,7 +1021,7 @@ public class ComicViewer {
 			// 缓存
 			File cacheFile = getLocalFile(pageInfo);
 			if (cacheFile.exists()) {
-				img = ImageIO.read(cacheFile);
+				img = readCachedImage(cacheFile);
 			} else {
 				if (!cacheFile.getParentFile().exists()) {
 					cacheFile.getParentFile().mkdirs();
@@ -1002,7 +1030,8 @@ public class ComicViewer {
 				// 否则一页超时会把其它页都堵住
 				picEngine.loadRemoteImage(comicId, sectionId, pageInfo.getPageNo(), pageInfo.getPageUrl());
 				if (cacheFile.exists()) {
-					img = ImageIO.read(cacheFile);
+					// 刚下好的文件也可能不完整，读不出来就删掉，下次重新下
+					img = readCachedImage(cacheFile);
 				} else if (showError) {
 					JOptionPane.showMessageDialog(null, "加载图片失败");
 				}
