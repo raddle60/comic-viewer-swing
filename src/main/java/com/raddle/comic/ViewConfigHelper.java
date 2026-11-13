@@ -72,6 +72,15 @@ public class ViewConfigHelper {
 		return config.getBoolean("view.isContinuousDownload", false);
 	}
 
+	public static void setZoomPercent(int zoomPercent) {
+		config.setProperty("view.zoomPercent", zoomPercent + "");
+		save();
+	}
+
+	public static int getZoomPercent() {
+		return config.getInt("view.zoomPercent", 100);
+	}
+
 	public static void setFitHeigthView(boolean isFitHeigthView) {
 		config.setProperty("view.isFitHeigthView", isFitHeigthView + "");
 		save();

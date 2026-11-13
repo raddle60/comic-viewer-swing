@@ -495,6 +495,20 @@ public class ContinuousScrollModelTest {
 	}
 
 	@Test
+	public void 缩放后图片大小跟着变() {
+		ContinuousScrollModel model = new ContinuousScrollModel(PAGE_COUNT, loader(), null);
+		model.reset(1);
+		model.loadPage(1);
+		model.setScale(0.5);
+		List<ContinuousScrollModel.VisiblePage> visible = model.getVisiblePages(PANE_WIDTH, PANE_HEIGHT, 0);
+		Assert.assertFalse(visible.isEmpty());
+		Assert.assertEquals("宽度应该缩了一半", PAGE_WIDTH / 2, visible.get(0).width);
+		Assert.assertEquals("高度应该缩了一半", PAGE_HEIGHT / 2, visible.get(0).height);
+		// 缩放后还是居中
+		Assert.assertEquals((PANE_WIDTH - PAGE_WIDTH / 2) / 2, visible.get(0).x);
+	}
+
+	@Test
 	public void 窗口比图片宽时居中显示() {
 		ContinuousScrollModel model = new ContinuousScrollModel(PAGE_COUNT, loader(), null);
 		model.reset(1);

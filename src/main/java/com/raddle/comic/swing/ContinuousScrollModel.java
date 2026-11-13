@@ -67,18 +67,24 @@ class ContinuousScrollModel {
 		}
 	}
 
-	/** 视口里要画的一页，带上它在窗口里的位置 */
+	/** 视口里要画的一页，带上它在窗口里的位置和缩放后的大小 */
 	static class VisiblePage {
 		final Page page;
 		/** 相对窗口左边的位置 */
 		final int x;
 		/** 相对窗口上边的位置 */
 		final int y;
+		/** 缩放后画出来的宽度 */
+		final int width;
+		/** 缩放后画出来的高度 */
+		final int height;
 
-		VisiblePage(Page page, int x, int y) {
+		VisiblePage(Page page, int x, int y, int width, int height) {
 			this.page = page;
 			this.x = x;
 			this.y = y;
+			this.width = width;
+			this.height = height;
 		}
 	}
 
@@ -249,8 +255,9 @@ class ContinuousScrollModel {
 	List<VisiblePage> getVisiblePages(int paneWidth, int paneHeight, int panX) {
 		List<VisiblePage> visible = new ArrayList<VisiblePage>();
 		int maxWidth = getContentWidth();
+		int displayWidth = (int) (maxWidth * scale);
 		// 窗口比图片宽就居中显示
-		int baseX = paneWidth > maxWidth ? (paneWidth - maxWidth) / 2 : 0;
+		int baseX = paneWidth > displayWidth ? (paneWidth - displayWidth) / 2 : 0;
 		int y = 0 - (int) (scrollOffset * scale);
 		int pageNo = scrollPage;
 		while (y < paneHeight && pageNo <= pageCount) {
@@ -259,7 +266,10 @@ class ContinuousScrollModel {
 				// 这一页还没加载出来，等加载完再画
 				break;
 			}
-			visible.add(new VisiblePage(page, baseX + panX + (maxWidth - page.width) / 2, y));
+			int width = (int) (page.width * scale);
+			int height = (int) (page.height * scale);
+			int x = baseX + panX + (displayWidth - width) / 2;
+			visible.add(new VisiblePage(page, x, y, width, height));
 			y = y + (int) ((page.height + intervalHeight) * scale);
 			pageNo++;
 		}
@@ -301,6 +311,11 @@ class ContinuousScrollModel {
 			scrollOffset = extra;
 		}
 		normalizeScroll();
+	}
+
+	/** 缩放之后内容的宽度，横向平移的边界按它算 */
+	int getDisplayWidth() {
+		return (int) (getContentWidth() * scale);
 	}
 
 	/** 内容的最宽宽度，用来横向居中和限制横向平移 */

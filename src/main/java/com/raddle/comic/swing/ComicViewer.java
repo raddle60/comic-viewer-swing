@@ -30,11 +30,13 @@ import java.util.Map;
 import java.util.Set;
 
 import javax.imageio.ImageIO;
+import javax.swing.ButtonGroup;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JFrame;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
+import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.UIManager;
@@ -142,6 +144,10 @@ public class ComicViewer {
 	private JCheckBoxMenuItem suiteWidthMenuItem;
 	private JCheckBoxMenuItem seamlessViewItem;
 	private JCheckBoxMenuItem continuousDownloadItem;
+	/** 图片缩放比例，100是原图大小 */
+	private int zoomPercent = 100;
+	/** 单页模式下原图，缩放后的图片从这里算出来 */
+	private Image originImage;
 	private Map<String,String> comicUpdate = new HashMap<String, String>();
 	/** 已经提示过要不要继续下一章了，位置动了就重新提示 */
 	private boolean nextChapterPromptShown = false;
@@ -318,11 +324,33 @@ public class ComicViewer {
 		continueModel.setContinuousDownload(continuousDownloadItem.isSelected());
 		menu_2.add(continuousDownloadItem);
 		
+		JMenu zoomMenu = new JMenu("缩放");
+		ButtonGroup zoomGroup = new ButtonGroup();
+		zoomPercent = ViewConfigHelper.getZoomPercent();
+		// 150%放最上面，往下依次减小
+		for (int percent : new int[] { 150, 125, 100, 75, 50, 25, 0 }) {
+			final int zoom = percent;
+			JRadioButtonMenuItem zoomItem = new JRadioButtonMenuItem(percent + "%");
+			zoomItem.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					ViewConfigHelper.setZoomPercent(zoom);
+					zoomPercent = zoom;
+					applyZoom();
+				}
+			});
+			zoomItem.setSelected(percent == zoomPercent);
+			zoomGroup.add(zoomItem);
+			zoomMenu.add(zoomItem);
+		}
+		menu_2.add(zoomMenu);
+
 		suiteWidthMenuItem = new JCheckBoxMenuItem("适合高度");
 		suiteWidthMenuItem.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
 				ViewConfigHelper.setFitHeigthView(suiteWidthMenuItem.isSelected());
+				applyZoom();
 			}
 		});
 		suiteWidthMenuItem.setSelected(ViewConfigHelper.getIsFitHeigthView());
@@ -565,7 +593,7 @@ public class ComicViewer {
 	 * 连续显示的横向平移。窗口比图片宽的时候居中显示，不用平移。
 	 */
 	private void movePicHorizontalContinue(int changedX) {
-		int imageWidth = continueModel.getContentWidth();
+		int imageWidth = continueModel.getDisplayWidth();
 		if (imageWidth <= 0) {
 			return;
 		}
@@ -672,12 +700,13 @@ public class ComicViewer {
 		int paneWidth = picPane.getWidth();
 		int paneHeight = picPane.getHeight();
 		List<ContinuousScrollModel.VisiblePage> visible = continueModel.getVisiblePages(paneWidth, paneHeight, picStartPoint.x);
-		g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 24));
 		for (ContinuousScrollModel.VisiblePage visiblePage : visible) {
 			ContinuousScrollModel.Page page = visiblePage.page;
-			g.drawImage(page.image, visiblePage.x, visiblePage.y, picPane);
+			g.drawImage(page.image, visiblePage.x, visiblePage.y, visiblePage.width, visiblePage.height, picPane);
 			g.setColor(Color.BLACK);
-			g.drawString(page.pageNo + "/" + pageMap.size(), visiblePage.x + page.width - 80, visiblePage.y + page.height - 10);
+			g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, pageFontSize()));
+			g.drawString(page.pageNo + "/" + pageMap.size(), visiblePage.x + visiblePage.width - 80,
+					visiblePage.y + visiblePage.height - 10);
 		}
 		// 加载失败或者还有页没加载出来，提示一下
 		g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 15));
@@ -750,14 +779,55 @@ public class ComicViewer {
 		}
 	}
 
-	/** 更新连续显示的缩放比例，"适合高度"时把每页缩放到窗口高度 */
-	private void updateContinueScale() {
-		ContinuousScrollModel.Page page = continueModel.getCurPage();
-		if (!suiteWidthMenuItem.isSelected() || page == null) {
-			continueModel.setScale(1.0);
+	/** 页码文字的大小，图片缩放了文字也跟着缩放 */
+	private int pageFontSize() {
+		int size = (int) (24 * zoomPercent / 100.0);
+		return size < 12 ? 12 : size;
+	}
+
+	/**
+	 * 按当前的缩放比例和"适合高度"重新显示。
+	 */
+	private void applyZoom() {
+		if (continueViewItem.isSelected() && pageMap.size() > 0) {
+			// 连续显示：改一下比例重画就行
+			updateContinueScale();
+			picPane.repaint();
 			return;
 		}
-		continueModel.setScale((double) picPane.getHeight() / page.height);
+		// 单页模式：从原图重新缩放
+		if (originImage != null) {
+			complexImage = originImage;
+			if (suiteWidthMenuItem.isSelected()) {
+				scaleToHeight();
+			}
+			scaleByZoom();
+		}
+		picPane.repaint();
+	}
+
+	/** 按缩放比例把当前图片缩小或放大 */
+	private void scaleByZoom() {
+		if (complexImage == null || zoomPercent == 100) {
+			return;
+		}
+		double zoom = zoomPercent / 100.0;
+		int width = (int) (complexImage.getWidth(null) * zoom);
+		int height = (int) (complexImage.getHeight(null) * zoom);
+		if (width <= 0 || height <= 0) {
+			return;
+		}
+		complexImage = complexImage.getScaledInstance(width, height, Image.SCALE_SMOOTH);
+	}
+
+	/** 更新连续显示的缩放比例，"适合高度"时把每页缩放到窗口高度，再乘上缩放比例 */
+	private void updateContinueScale() {
+		ContinuousScrollModel.Page page = continueModel.getCurPage();
+		double scale = 1.0;
+		if (suiteWidthMenuItem.isSelected() && page != null) {
+			scale = (double) picPane.getHeight() / page.height;
+		}
+		continueModel.setScale(scale * zoomPercent / 100.0);
 	}
 
 	private synchronized void showImage(final boolean isNextPage) {
@@ -784,11 +854,13 @@ public class ComicViewer {
 									updateContinueScale();
 									picPane.repaint();
 								} else {
-									complexImage = loadImage(pageInfo);
+									originImage = loadImage(pageInfo);
+									complexImage = originImage;
 									if (complexImage != null) {
 										if(suiteWidthMenuItem.isSelected()){
 											scaleToHeight();
 										}
+										scaleByZoom();
 										picStartPoint = new Point();
 										if (isNextPage) {
 											// 下一页从右上角开始
