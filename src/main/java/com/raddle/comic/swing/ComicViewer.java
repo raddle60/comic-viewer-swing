@@ -855,14 +855,21 @@ public class ComicViewer {
 						JOptionPane.showMessageDialog(null, isNextPage ? "已是最后一章" : "已是第一章");
 						return;
 					}
-					sectionId = nextSection.getSectionId();
-					sectionName = nextSection.getName();
-					pageMap.clear();
 					try {
-						List<PageInfo> pages = picEngine.getPages(comicId, sectionId);
+						List<PageInfo> pages = picEngine.getPages(comicId, nextSection.getSectionId());
+						if (pages == null || pages.isEmpty()) {
+							// 没拿到下一章的页面信息，就不要换章，原地不动，用户还能再试
+							JOptionPane.showMessageDialog(null, "获取页面信息失败 , 没有页面信息");
+							nextChapterPromptShown = false;
+							return;
+						}
+						// 页面都拿到了再换章，中途失败就一直停在原来这一章
+						pageMap.clear();
 						for (PageInfo pageInfo1 : pages) {
 							pageMap.put(pageInfo1.getPageNo(), pageInfo1);
 						}
+						sectionId = nextSection.getSectionId();
+						sectionName = nextSection.getName();
 						pageNo = isNextPage ? 1 : pageMap.size();
 						// 换章了，缓存里还是上一章的图片，要清掉
 						continueModel.setPageCount(pageMap.size());
@@ -871,6 +878,8 @@ public class ComicViewer {
 					} catch (Exception e1) {
 						logger.log(e1.getMessage(), e1);
 						JOptionPane.showMessageDialog(null, "获取页面信息失败 , " + e1.getMessage());
+						// 失败了还是停在原来这一章，用户可以再试一次
+						nextChapterPromptShown = false;
 					}
 					return;
 				}
