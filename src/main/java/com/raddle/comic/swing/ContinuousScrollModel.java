@@ -28,6 +28,8 @@ class ContinuousScrollModel {
 	static final int INTERVAL_HEIGHT = 5;
 	/** 这次滚动是不是被本章末尾挡住了 */
 	private boolean blockedAtEnd = false;
+	/** 页加载好了之后要补上的滚动距离，由界面平滑地补 */
+	private volatile int pendingApply = 0;
 	/** 实际用的间隔，"无缝显示"时为0 */
 	private int intervalHeight = INTERVAL_HEIGHT;
 	/** 预加载半径，当前页前后各预加载几页 */
@@ -285,6 +287,9 @@ class ContinuousScrollModel {
 
 	/**
 	 * 下一页加载出来后，把之前记下的滚动距离补上，位置接着往下走。
+	 *
+	 * 差的那段距离不直接算到位置上，而是交给界面平滑地补，
+	 * 不然页一下载好画面就突然跳一下。
 	 */
 	private synchronized void applyPendingOffset() {
 		if (pendingOffset == 0) {
@@ -301,18 +306,36 @@ class ContinuousScrollModel {
 			}
 			int extra = pendingOffset;
 			pendingOffset = 0;
-			// 记下的距离是从这一页的最后一个位置算起的，接着往下走
-			scrollOffset = cur.height + intervalHeight - 1 + extra;
+			// 先挪到下一页的开头，只差一个间隔的距离，
+			// 剩下那段交给界面平滑地补，不然画面会突然跳一下
+			scrollPage = scrollPage + 1;
+			scrollOffset = 0;
+			// 挪到下一页开头时已经比卡住的位置前进了一个间隔，算的时候要减掉
+			pendingApply = pendingApply + extra - 1;
 		} else {
 			// 往上滚：上一页加载出来了才能接着走
-			if (!pageCache.containsKey(scrollPage - 1)) {
+			Page prev = pageCache.get(scrollPage - 1);
+			if (prev == null) {
 				return;
 			}
 			int extra = pendingOffset;
 			pendingOffset = 0;
-			scrollOffset = extra;
+			// 同理，先挪到上一页的底部
+			scrollPage = scrollPage - 1;
+			scrollOffset = prev.height + intervalHeight;
+			pendingApply = pendingApply + extra;
 		}
 		normalizeScroll();
+	}
+
+	/**
+	 * 取走要补的滚动距离（窗口像素）。
+	 * 页加载好了之后把这段距离平滑地补上，而不是一步跳过去。
+	 */
+	int takePendingApply() {
+		int distance = (int) (pendingApply * scale);
+		pendingApply = 0;
+		return distance;
 	}
 
 	/** 缩放之后内容的宽度，横向平移的边界按它算 */

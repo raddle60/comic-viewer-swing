@@ -54,6 +54,7 @@ public class ContinuousScrollModelTest {
 			model.scroll(50);
 			// 下一页准备好了（真实流程里是后台预加载做的）
 			model.loadPage(model.getCurPageNo() + 1);
+			applyPending(model);
 			int now = absoluteOffset(model);
 			Assert.assertEquals("第" + i + "步向下滚出现跳跃", prev + 50, now);
 			prev = now;
@@ -73,6 +74,7 @@ public class ContinuousScrollModelTest {
 			model.scroll(-50);
 			// 上一页准备好了（真实流程里是后台预加载做的）
 			model.loadPage(model.getCurPageNo() - 1);
+			applyPending(model);
 			int now = absoluteOffset(model);
 			Assert.assertEquals("第" + i + "步向上滚出现跳跃", prev - 50, now);
 			prev = now;
@@ -114,6 +116,7 @@ public class ContinuousScrollModelTest {
 		// 第2页加载出来了，之前滚过去的距离要补上，一分都不能少
 		loaded.add(2);
 		model.loadPage(2);
+		applyPending(model);
 		Assert.assertEquals("页加载出来后用户滚的距离丢了", start + 40 * 50, absoluteOffset(model));
 		Assert.assertEquals(2, model.getCurPageNo());
 	}
@@ -390,6 +393,17 @@ public class ContinuousScrollModelTest {
 		Assert.assertNull(ComicViewer.getAdjacentSection(sections, "9", true));
 	}
 
+	/**
+	 * 模拟界面做的事：页加载好之后，把之前滚过去但没滚到的那段距离补上。
+	 * 实际是界面用动画平滑地补的，测试里直接补。
+	 */
+	private void applyPending(ContinuousScrollModel model) {
+		int pending = model.takePendingApply();
+		if (pending != 0) {
+			model.scroll(pending);
+		}
+	}
+
 	@Test
 	public void 连续下载会把本章都下完() throws Exception {
 		final List<Integer> requested = Collections.synchronizedList(new ArrayList<Integer>());
@@ -492,6 +506,25 @@ public class ContinuousScrollModelTest {
 		Assert.assertTrue(visible.size() >= 2);
 		// 一页的底部就是下一页的顶部，中间不留空
 		Assert.assertEquals("两页之间不该有间隔", visible.get(0).y + PAGE_HEIGHT, visible.get(1).y);
+	}
+
+	@Test
+	public void 页加载好后要补的距离交给界面平滑补() {
+		ContinuousScrollModel model = new ContinuousScrollModel(PAGE_COUNT, loader(), null);
+		model.reset(1);
+		model.loadPage(1);
+
+		// 第2页还没加载，往下滚，位置被卡住
+		for (int i = 0; i < 30; i++) {
+			model.scroll(50);
+		}
+		// 第2页加载好了
+		model.loadPage(2);
+		// 模型不自己一步跳过去，把要补的距离交给界面
+		int pending = model.takePendingApply();
+		Assert.assertTrue("应该有一段距离交给界面平滑地补", pending > 0);
+		// 位置加上要补的距离，正好是用户滚过的距离，一分都不能少
+		Assert.assertEquals("用户滚过的距离不能丢", 30 * 50, absoluteOffset(model) + pending);
 	}
 
 	@Test

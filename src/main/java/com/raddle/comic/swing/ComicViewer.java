@@ -135,6 +135,12 @@ public class ComicViewer {
 			EventQueue.invokeLater(new Runnable() {
 				@Override
 				public void run() {
+					// 之前滚过去但没滚到的那段距离，平滑地补上，
+					// 不然页一下载好画面就突然跳一下
+					int pending = continueModel.takePendingApply();
+					if (pending != 0) {
+						smoothScroll(pending);
+					}
 					updateContinueTitle();
 					picPane.repaint();
 				}
@@ -643,6 +649,16 @@ public class ComicViewer {
 	 * @param distance 正数表示向下滚
 	 */
 	private void wheelScroll(int distance) {
+		smoothScroll(distance);
+	}
+
+	/**
+	 * 平滑滚动。距离累加起来，用动画慢慢走过去。
+	 * 滚轮和"页加载好了要补的距离"都用它。
+	 *
+	 * @param distance 正数表示向下滚
+	 */
+	private void smoothScroll(int distance) {
 		smoothScrollTarget = smoothScrollTarget + distance;
 		startSmoothScroll();
 	}
@@ -1172,6 +1188,11 @@ public class ComicViewer {
 					EventQueue.invokeLater(new Runnable() {
 						@Override
 						public void run() {
+							// 之前滚过去但没滚到的那段距离，平滑地补上
+							int pending = continueModel.takePendingApply();
+							if (pending != 0) {
+								smoothScroll(pending);
+							}
 							updateContinueTitle();
 							picPane.repaint();
 						}
