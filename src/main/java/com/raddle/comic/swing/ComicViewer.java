@@ -7,10 +7,12 @@ import java.awt.EventQueue;
 import java.awt.Font;
 import java.awt.Frame;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.Image;
 import java.awt.Point;
+import java.awt.RenderingHints;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyAdapter;
@@ -718,7 +720,8 @@ public class ComicViewer {
 		List<ContinuousScrollModel.VisiblePage> visible = continueModel.getVisiblePages(paneWidth, paneHeight, picStartPoint.x);
 		for (ContinuousScrollModel.VisiblePage visiblePage : visible) {
 			ContinuousScrollModel.Page page = visiblePage.page;
-			g.drawImage(page.image, visiblePage.x, visiblePage.y, visiblePage.width, visiblePage.height, picPane);
+			// 只画窗口里露出来的那一块，缩放整张图太慢
+			drawPage(g, visiblePage, paneWidth, paneHeight);
 			g.setColor(Color.BLACK);
 			g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, pageFontSize()));
 			g.drawString(page.pageNo + "/" + pageMap.size(), visiblePage.x + visiblePage.width - 80,
@@ -799,6 +802,54 @@ public class ComicViewer {
 	private int pageFontSize() {
 		int size = (int) (24 * zoomPercent / 100.0);
 		return size < 12 ? 12 : size;
+	}
+
+	/**
+	 * 画一页，只画窗口里露出来的那一块。
+	 *
+	 * 整张缩放再画的话，放大时又慢又糊；只缩放看得见的部分，
+	 * 用双三次插值，放大出来的效果跟浏览器里放大图片一样。
+	 */
+	static void drawPage(Graphics g, ContinuousScrollModel.VisiblePage visiblePage, int paneWidth, int paneHeight) {
+		// 放大的时候默认是按像素点取样的，放大后一片马赛克。
+		// 用双三次插值，跟浏览器里放大图片一个效果。
+		Graphics2D g2 = (Graphics2D) g;
+		g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+		g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+		ContinuousScrollModel.Page page = visiblePage.page;
+		int x = visiblePage.x;
+		int y = visiblePage.y;
+		int width = visiblePage.width;
+		int height = visiblePage.height;
+		if (width <= 0 || height <= 0 || page.width <= 0 || page.height <= 0) {
+			return;
+		}
+		// 缩放前后尺寸一样就不用算裁剪了，直接画
+		if (width == page.width && height == page.height) {
+			g.drawImage(page.image, x, y, width, height, null);
+			return;
+		}
+		// 跟窗口重叠的那部分
+		int interX = Math.max(x, 0);
+		int interY = Math.max(y, 0);
+		int interRight = Math.min(x + width, paneWidth);
+		int interBottom = Math.min(y + height, paneHeight);
+		if (interRight <= interX || interBottom <= interY) {
+			return;
+		}
+		// 重叠部分换算回原图上的位置
+		double scaleX = (double) width / page.width;
+		double scaleY = (double) height / page.height;
+		int srcX = (int) ((interX - x) / scaleX);
+		int srcY = (int) ((interY - y) / scaleY);
+		int srcWidth = (int) ((interRight - interX) / scaleX);
+		int srcHeight = (int) ((interBottom - interY) / scaleY);
+		if (srcWidth <= 0 || srcHeight <= 0) {
+			return;
+		}
+		// drawImage这个重载是"目标区域在前、原图区域在后"，别弄反了
+		g.drawImage(page.image, interX, interY, interRight, interBottom, srcX, srcY, srcX + srcWidth, srcY + srcHeight,
+				null);
 	}
 
 	/**
