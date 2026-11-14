@@ -121,6 +121,20 @@ Images are read with `ImageIO.read()`. The JDK only supports jpeg/png/gif/bmp/wb
 
 Logs go to stdout and `~/.comic-view/logs/comic-view.log` (logback, `src/main/resources/logback.xml`).
 
+### HTTP 连接池
+
+`HttpHelper` 用一个全局的 `CloseableHttpClient`，keep-alive 默认就是开着的：HTTP/1.1 持久连接，响应实体读完以后连接放回池子里，下一个请求接着用（`getRemotePage` 用 `EntityUtils.toString`，`saveRemotePage` 用 `IOUtils.copy` + `EntityUtils.consume`，所以连接都会还回池子）。
+
+站点本身往往限制并发，所以连接池是自己建的（`PoolingHttpClientConnectionManager`）：
+
+- 同一个站点最多 4 条并发连接（`defaultMaxPerRoute`），全部加起来最多 20 条（`maxTotal`）。HttpClient 自己的默认值是每站点 2 条。
+- 从池子里取连接最多等 10 秒（`connectionRequestTimeout`）。同时下好几页时会排队等连接，等不到就报 `Timeout waiting for connection from pool`，看起来像被限流。默认的 1 秒太短。
+- 连接超时 5 秒（`connectTimeout`），默认的 1 秒容易失败。
+- `setValidateAfterInactivity(2000)`：池子里放了超过 2 秒的连接，用之前先探一下是不是被服务器关掉了，是就丢掉重连。
+- `evictIdleConnections(30s)` + `evictExpiredConnections()`：定期清掉闲置太久、服务器已经关掉的连接。
+
+单次请求的超时用 `RequestConfig.copy(默认配置)` 改，不要从头建 —— 单次请求的配置会整个替换默认配置，从头建会把连接池等待时间、连接超时都退回默认值。
+
 ### Rhino threading notes
 
 `Context` is thread-local. `ComicPluginEngine.close()` calls `Context.exit()` — always close the engine in a `finally` block, and note that `init()` throws `IllegalStateException` if called twice on the same engine. `loadRemoteImage` may be called from a background thread and does `Context.enter()` itself.

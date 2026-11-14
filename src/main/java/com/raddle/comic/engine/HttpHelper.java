@@ -9,6 +9,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
@@ -23,6 +24,7 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.util.EntityUtils;
 import org.slf4j.LoggerFactory;
 
@@ -36,13 +38,37 @@ public class HttpHelper {
 	private static final LogWrapper logger = new LogWrapper(LoggerFactory.getLogger(HttpHelper.class));
 	/** 默认的读取超时（秒） */
 	public static final int DEFAULT_SO_TIMEOUT_SEC = 5;
+	/** 建立连接的超时（毫秒） */
+	private static final int CONNECT_TIMEOUT_MS = 5 * 1000;
+	/** 从连接池里取连接的等待时间（毫秒）。同时下好几页会排队等连接，等不到就直接失败，所以要留够时间。 */
+	private static final int CONNECTION_REQUEST_TIMEOUT_MS = 10 * 1000;
+	/** 同一个站点最多同时用几条连接。站点本身往往限制并发，开太多会被掐，所以保持小一点。 */
+	private static final int MAX_CONN_PER_ROUTE = 4;
+	/** 连接池里一共最多保留几条连接（不同站点加起来） */
+	private static final int MAX_CONN_TOTAL = 20;
+	/** 默认的请求配置 */
+	private static final RequestConfig DEFAULT_REQUEST_CONFIG = RequestConfig.custom().setConnectionRequestTimeout(CONNECTION_REQUEST_TIMEOUT_MS)
+			.setSocketTimeout(DEFAULT_SO_TIMEOUT_SEC * 1000).setConnectTimeout(CONNECT_TIMEOUT_MS).build();
 	private final static CloseableHttpClient httpclient;
 	static {
+		// 显式建连接池。HttpClient 自己也会建池，但默认每个站点只允许 2 条并发连接，
+		// 池子满了以后取连接要排队，排队超时只有 1 秒，很容易就报 "Timeout waiting for connection from pool"，
+		// 看起来就像是被站点限流了。
+		PoolingHttpClientConnectionManager connManager = new PoolingHttpClientConnectionManager();
+		connManager.setMaxTotal(MAX_CONN_TOTAL);
+		connManager.setDefaultMaxPerRoute(MAX_CONN_PER_ROUTE);
+		// 池子里放了超过 2 秒的连接，拿出来用之前先探一下是不是已经被服务器关掉了，
+		// 是的话丢掉重连。这样既不会用坏连接，也不用每次都重新握手。
+		connManager.setValidateAfterInactivity(2000);
 		HttpClientBuilder custom = HttpClients.custom();
 		custom.setUserAgent("Mozilla/5.0 (Windows NT 6.1; rv:25.0) Gecko/20100101 Firefox/25.0");
-		RequestConfig config = RequestConfig.custom().setConnectionRequestTimeout(1 * 1000).setSocketTimeout(DEFAULT_SO_TIMEOUT_SEC * 1000)
-				.setConnectTimeout(1 * 1000).build();
-		custom.setDefaultRequestConfig(config);
+		custom.setConnectionManager(connManager);
+		custom.setDefaultRequestConfig(DEFAULT_REQUEST_CONFIG);
+		// keep-alive 是开着的：HTTP/1.1 默认就是持久连接，响应读完以后连接放回池子里，下一个请求接着用。
+		// 但服务器会主动关掉空闲连接，池子里留着这种已经断掉的连接，下次拿去用就会失败。
+		// 定期把闲置超过 30 秒的连接清掉，保证取出来的都是活连接，不用反复重建。
+		custom.evictIdleConnections(30, TimeUnit.SECONDS);
+		custom.evictExpiredConnections();
 		httpclient = custom.build();
 	}
 
@@ -60,7 +86,11 @@ public class HttpHelper {
 				timeoutSec = sec;
 			}
 		}
-		return RequestConfig.custom().setConnectionRequestTimeout(1 * 1000).setSocketTimeout(timeoutSec * 1000).setConnectTimeout(1 * 1000).build();
+		if (timeoutSec == DEFAULT_SO_TIMEOUT_SEC) {
+			return DEFAULT_REQUEST_CONFIG;
+		}
+		// 单次请求会整个替换掉默认配置，所以要基于默认配置改，不要重新从头建
+		return RequestConfig.copy(DEFAULT_REQUEST_CONFIG).setSocketTimeout(timeoutSec * 1000).build();
 	}
 
 	/**
