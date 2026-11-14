@@ -32,12 +32,16 @@ import java.util.Map;
 import java.util.Set;
 
 import javax.imageio.ImageIO;
+import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
 import javax.swing.JCheckBoxMenuItem;
+import javax.swing.JDialog;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
+import javax.swing.JProgressBar;
 import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -47,6 +51,7 @@ import javax.swing.event.MenuListener;
 
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.mozilla.javascript.Context;
 import org.slf4j.LoggerFactory;
 
 import com.raddle.comic.LogWrapper;
@@ -990,62 +995,143 @@ public class ComicViewer {
 	}
 
 	private void changePage(boolean isNextPage) {
-		if (pageNo != null && !loading && pageMap.size() > 0) {
-			loading = true;
-			boolean success = false;
-			frame.setTitle(getBasicTitle() + " - 正在翻页");
-			try {
-				int nextPageNo = isNextPage ? pageNo + 1 : pageNo - 1;
-				PageInfo pageInfo = pageMap.get(nextPageNo);
-				if (pageInfo != null) {
-					pageNo = nextPageNo;
-					success = true;
-				} else {
-					// 本章没有下一页了，换章
-					SectionInfo nextSection = getAdjacentSection(isNextPage);
-					if (nextSection == null) {
-						if (isFullScreen) {
-							exitFullScreen();
-						}
-						JOptionPane.showMessageDialog(null, isNextPage ? "已是最后一章" : "已是第一章");
-						return;
-					}
-					try {
-						List<PageInfo> pages = picEngine.getPages(comicId, nextSection.getSectionId());
-						if (pages == null || pages.isEmpty()) {
-							// 没拿到下一章的页面信息，就不要换章，原地不动，用户还能再试
-							JOptionPane.showMessageDialog(null, "获取页面信息失败 , 没有页面信息");
-							nextChapterPromptShown = false;
-							return;
-						}
-						// 页面都拿到了再换章，中途失败就一直停在原来这一章
-						pageMap.clear();
-						for (PageInfo pageInfo1 : pages) {
-							pageMap.put(pageInfo1.getPageNo(), pageInfo1);
-						}
-						sectionId = nextSection.getSectionId();
-						sectionName = nextSection.getName();
-						pageNo = isNextPage ? 1 : pageMap.size();
-						// 换章了，缓存里还是上一章的图片，要清掉
-						continueModel.setPageCount(pageMap.size());
-						continueModel.reset(pageNo);
-						success = true;
-					} catch (Exception e1) {
-						logger.log(e1.getMessage(), e1);
-						JOptionPane.showMessageDialog(null, "获取页面信息失败 , " + e1.getMessage());
-						// 失败了还是停在原来这一章，用户可以再试一次
-						nextChapterPromptShown = false;
-					}
-					return;
-				}
-			} finally {
-				loading = false;
-				frame.setTitle(getBasicTitle());
-				if (success) {
-					showImage(isNextPage);
-				}
-			}
+		if (pageNo == null || loading || pageMap.size() == 0) {
+			return;
 		}
+		loading = true;
+		frame.setTitle(getBasicTitle() + " - 正在翻页");
+		int nextPageNo = isNextPage ? pageNo + 1 : pageNo - 1;
+		PageInfo pageInfo = pageMap.get(nextPageNo);
+		if (pageInfo != null) {
+			// 本章还有下一页
+			pageNo = nextPageNo;
+			loading = false;
+			frame.setTitle(getBasicTitle());
+			showImage(isNextPage);
+			return;
+		}
+		// 本章没有下一页了，换章
+		SectionInfo nextSection = getAdjacentSection(isNextPage);
+		if (nextSection == null) {
+			loading = false;
+			if (isFullScreen) {
+				exitFullScreen();
+			}
+			frame.setTitle(getBasicTitle());
+			JOptionPane.showMessageDialog(frame, isNextPage ? "已是最后一章" : "已是第一章");
+			return;
+		}
+		// 换章要重新取页面信息，要走网络。放到后台线程取，这边弹个进度框，
+		// 不然界面会卡住不动，用户在这期间乱操作也容易把状态弄乱。
+		loadNextSection(nextSection, isNextPage);
+	}
+
+	/**
+	 * 换章：取相邻章节的页面信息，取到了再换。
+	 *
+	 * 取页面要走网络，不能在事件线程里做，不然界面会卡住不动。
+	 * 这时候弹一个模态进度框，框显示期间用户没法操作主窗口，
+	 * 免得翻到一半又去点别的，页码和章节对不上。
+	 *
+	 * @param nextSection 要换到的章节
+	 * @param isNextPage true是下一章，false是上一章
+	 */
+	private void loadNextSection(final SectionInfo nextSection, final boolean isNextPage) {
+		// 弹框之前先把平滑滚动停掉，不然框底下画面还在动
+		stopSmoothScroll();
+		final JDialog progress = createLoadingDialog(isNextPage ? "正在加载下一章…" : "正在加载上一章…");
+		new Thread(new Runnable() {
+			@Override
+			public void run() {
+				List<PageInfo> pages = null;
+				String error = null;
+				try {
+					// 起了新线程，Rhino 的 Context 是跟线程走的，这里要自己进一个
+					Context.enter();
+					try {
+						pages = picEngine.getPages(comicId, nextSection.getSectionId());
+					} finally {
+						Context.exit();
+					}
+					if (pages == null || pages.isEmpty()) {
+						error = "没有页面信息";
+					}
+				} catch (Throwable e) {
+					// 万一出了意料之外的错，也要把进度框关掉，不然窗口一直卡在那儿
+					logger.log(e.getMessage(), e);
+					error = e.getMessage();
+				}
+				final List<PageInfo> loadedPages = pages;
+				final String errorMessage = error;
+				EventQueue.invokeLater(new Runnable() {
+					@Override
+					public void run() {
+						// 先把进度框关掉，再弹错误提示，免得两个框叠在一起
+						progress.dispose();
+						applyLoadedSection(loadedPages, errorMessage, nextSection, isNextPage);
+					}
+				});
+			}
+		}, "load-section").start();
+		// 模态框在这里阻塞，返回说明已经加载完了
+		progress.setVisible(true);
+	}
+
+	/**
+	 * 换章的页面信息取回来了，处理结果。
+	 *
+	 * @param pages 取到的页面信息，失败时是null
+	 * @param error 失败原因，成功时是null
+	 * @param nextSection 要换到的章节
+	 * @param isNextPage true是下一章，false是上一章
+	 */
+	private void applyLoadedSection(List<PageInfo> pages, String error, SectionInfo nextSection, boolean isNextPage) {
+		if (error != null) {
+			// 失败了还是停在原来这一章，用户可以再试一次
+			loading = false;
+			nextChapterPromptShown = false;
+			frame.setTitle(getBasicTitle());
+			JOptionPane.showMessageDialog(frame, "获取页面信息失败 , " + error);
+			return;
+		}
+		// 页面都拿到了再换章，中途失败就一直停在原来这一章
+		pageMap.clear();
+		for (PageInfo pageInfo : pages) {
+			pageMap.put(pageInfo.getPageNo(), pageInfo);
+		}
+		sectionId = nextSection.getSectionId();
+		sectionName = nextSection.getName();
+		pageNo = isNextPage ? 1 : pageMap.size();
+		// 换章了，缓存里还是上一章的图片，要清掉
+		continueModel.setPageCount(pageMap.size());
+		continueModel.reset(pageNo);
+		// 换了新的一章，这一章看完了要重新问要不要继续下一章
+		nextChapterPromptShown = false;
+		loading = false;
+		frame.setTitle(getBasicTitle());
+		showImage(isNextPage);
+	}
+
+	/**
+	 * 造一个模态的进度框，只有进度条，没有取消按钮。
+	 *
+	 * @param message 框上显示的字
+	 * @return 进度框，调用方负责关掉它
+	 */
+	private JDialog createLoadingDialog(String message) {
+		JDialog dialog = new JDialog(frame, message, true);
+		dialog.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
+		JPanel panel = new JPanel(new BorderLayout(10, 10));
+		panel.setBorder(BorderFactory.createEmptyBorder(15, 20, 15, 20));
+		panel.add(new JLabel(message), BorderLayout.NORTH);
+		JProgressBar progressBar = new JProgressBar();
+		progressBar.setIndeterminate(true);
+		panel.add(progressBar, BorderLayout.CENTER);
+		dialog.setContentPane(panel);
+		dialog.pack();
+		dialog.setResizable(false);
+		dialog.setLocationRelativeTo(frame);
+		return dialog;
 	}
 
 	private Image loadImage(PageInfo pageInfo) throws IOException {

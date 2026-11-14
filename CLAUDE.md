@@ -139,6 +139,8 @@ Logs go to stdout and `~/.comic-view/logs/comic-view.log` (logback, `src/main/re
 
 `Context` is thread-local. `ComicPluginEngine.close()` calls `Context.exit()` — always close the engine in a `finally` block, and note that `init()` throws `IllegalStateException` if called twice on the same engine. `loadRemoteImage` may be called from a background thread and does `Context.enter()` itself.
 
+`getPages` 同样可能被后台线程调用（换章时就是），调用方要自己 `Context.enter()` / `Context.exit()`，见 `ComicViewer.loadNextSection`。
+
 The startup update check spawns a thread that re-reads each recent comic's last section id so the "最近打开" menu can flag `有更新`.
 
 ## Viewer controls
@@ -158,3 +160,5 @@ View menu (查看):
 | 适合高度 | scale each page to the pane height |
 
 Scrolling to the end of a chapter asks whether to continue to the next one; if the next chapter cannot be fetched the viewer stays where it is and can be retried.
+
+Switching chapters has to fetch the new chapter's page list, which is a network call. It runs on a background thread (`ComicViewer.loadNextSection`) and a **modal progress dialog** ("正在加载下一章…") blocks the main window while it runs — the user can't scroll, press keys or click around halfway through, so the page number and the chapter can't get out of sync. The pages are only swapped in once the whole list came back (`applyLoadedSection`); on failure the viewer stays on the old chapter and the error is shown after the progress dialog is closed.
