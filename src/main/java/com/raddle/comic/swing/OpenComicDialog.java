@@ -24,6 +24,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
+import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.ListSelectionEvent;
@@ -58,9 +59,17 @@ public class OpenComicDialog extends JDialog {
 	private JLabel comicNameLeb;
 	private String sectionName;
 	private JList<SectionInfo> sectionList;
+	private JScrollPane sectionListScr;
 	private final DefaultListModel<SectionInfo> sectionListModel = new DefaultListModel<SectionInfo>();
 	/** 程序化设置选中项时，屏蔽列表选择事件，避免重复加载页面 */
 	private boolean suppressSectionEvent = false;
+	/** 要滚到列表中间的章节位置，等窗口显示出来之后再用 */
+	private int pendingScrollIndex = -1;
+	/** 列表还没布局好的时候要重试几次 */
+	private int scrollRetry = 0;
+	private static final int MAX_SCROLL_RETRY = 10;
+	/** 选中的那一章往下滚几章，能让它落在可视区域的中间 */
+	private static final int SCROLL_DOWN_ROWS = 6;
 
 	/**
 	 * Launch the application.
@@ -195,10 +204,12 @@ public class OpenComicDialog extends JDialog {
 								suppressSectionEvent = true;
 								try {
 									sectionList.setSelectedIndex(matchedIndex);
-									sectionList.ensureIndexIsVisible(matchedIndex);
 								} finally {
 									suppressSectionEvent = false;
 								}
+								// 把选中的章节滚到列表中间
+								pendingScrollIndex = matchedIndex;
+								scrollSelectedToMiddle();
 							}
 						}
 						if (!matched) {
@@ -275,6 +286,7 @@ public class OpenComicDialog extends JDialog {
 		JScrollPane sectionListScr = new JScrollPane(sectionList);
 		sectionListScr.setBounds(10, 281, 751, 276);
 		contentPanel.add(sectionListScr);
+		this.sectionListScr = sectionListScr;
 		{
 			JPanel buttonPane = new JPanel();
 			buttonPane.setLayout(new FlowLayout(FlowLayout.RIGHT));
@@ -321,6 +333,27 @@ public class OpenComicDialog extends JDialog {
 		}
 	}
 
+	/**
+	 * 窗口每次显示出来都要把选中的章节滚到中间。
+	 *
+	 * 不能靠 windowOpened 那个事件，它只在窗口第一次显示的时候来一次，
+	 * 第二次打开就滚不动了。setVisible 每次显示都会走这里。
+	 */
+	@Override
+	public void setVisible(boolean visible) {
+		if (visible) {
+			// 模态窗口的 setVisible 会一直阻塞到窗口被关掉，
+			// 所以要先把滚动的事丢到事件队列里，等窗口显示出来再处理
+			SwingUtilities.invokeLater(new Runnable() {
+				@Override
+				public void run() {
+					scrollSelectedToMiddle();
+				}
+			});
+		}
+		super.setVisible(visible);
+	}
+
 	public void initRecentView(RecentViewInfo viewInfo) {
 		for (int i = 0; i < channelBox.getItemCount(); i++) {
 			ChannelInfo item = channelBox.getItemAt(i);
@@ -338,10 +371,6 @@ public class OpenComicDialog extends JDialog {
 			ComicInfo comicInfo = pluginEngine.getSections(comicIdTxt.getText());
 			if (comicInfo != null) {
 				comicNameLeb.setText(StringUtils.defaultString(comicInfo.getComicName()));
-				// 章节列表也填上，跟手动打开漫画时一样
-				for (SectionInfo sectionInfo : comicInfo.getSections()) {
-					sectionListModel.addElement(sectionInfo);
-				}
 				List<SectionInfo> sections = comicInfo.getSections();
 				if (sections != null && sections.size() > 0) {
 					int matchedIndex = -1;
@@ -357,6 +386,7 @@ public class OpenComicDialog extends JDialog {
 					if (StringUtils.isNotBlank(latestSection.getName())) {
 						lastSectionIdLeb.setText(lastSectionIdLeb.getText() + "(名称：" + latestSection.getName() + ")");
 					}
+					// 章节列表也填上，跟手动打开漫画时一样
 					for (SectionInfo sectionInfo : sections) {
 						sectionListModel.addElement(sectionInfo);
 					}
@@ -364,10 +394,12 @@ public class OpenComicDialog extends JDialog {
 						suppressSectionEvent = true;
 						try {
 							sectionList.setSelectedIndex(matchedIndex);
-							sectionList.ensureIndexIsVisible(matchedIndex);
 						} finally {
 							suppressSectionEvent = false;
 						}
+						// 把选中的章节滚到列表中间
+						pendingScrollIndex = matchedIndex;
+						scrollSelectedToMiddle();
 					}
 				}
 			}
@@ -387,6 +419,42 @@ public class OpenComicDialog extends JDialog {
 		} finally {
 			pluginEngine.close();
 		}
+	}
+
+	/**
+	 * 把选中的章节滚到列表可视区域的中间。
+	 *
+	 * 滚到选中的那一章后面几章，选中的那一章就大致在中间了。
+	 * 一屏能看十几章，往下滚六章，选中的那一章差不多就在中间。
+	 *
+	 * 窗口刚显示出来的时候列表还没布局好，高度是0，这时滚不了，等一下再来。
+	 */
+	private void scrollSelectedToMiddle() {
+		int index = pendingScrollIndex;
+		if (index < 0 || index >= sectionListModel.size()) {
+			return;
+		}
+		if (sectionListScr.getViewport().getExtentSize().height <= 0) {
+			// 窗口还没显示出来，列表没有高度，滚不了，等一下再滚
+			if (scrollRetry < MAX_SCROLL_RETRY) {
+				scrollRetry++;
+				SwingUtilities.invokeLater(new Runnable() {
+					@Override
+					public void run() {
+						scrollSelectedToMiddle();
+					}
+				});
+			}
+			return;
+		}
+		// 先回到顶部。ensureIndexIsVisible 只会滚最少的长度，
+		// 列表原来停在哪里，滚完的位置就不一样，每次打开的滚动位置得一样才说得过去。
+		sectionList.ensureIndexIsVisible(0);
+		// 再往下滚几章，选中的那一章就落在可视区域的中间了
+		int target = Math.min(index + SCROLL_DOWN_ROWS, sectionListModel.size() - 1);
+		sectionList.ensureIndexIsVisible(target);
+		pendingScrollIndex = -1;
+		scrollRetry = 0;
 	}
 
 	/**

@@ -23,12 +23,13 @@ public class PluginEngineTest {
 	public void 取章节列表() throws Exception {
 		ComicPluginEngine engine = newEngine();
 		try {
-			ComicInfo comicInfo = engine.getSections("1");
+			// 测试脚本按漫画id造章节，id是3就造三章
+			ComicInfo comicInfo = engine.getSections("3");
 			Assert.assertEquals("测试漫画", comicInfo.getComicName());
-			Assert.assertEquals(2, comicInfo.getSections().size());
+			Assert.assertEquals(3, comicInfo.getSections().size());
 			// 章节列表是倒序的，最新的一话在最前面
-			Assert.assertEquals("2", comicInfo.getSections().get(0).getSectionId());
-			Assert.assertEquals("第一章", comicInfo.getSections().get(1).getName());
+			Assert.assertEquals("3", comicInfo.getSections().get(0).getSectionId());
+			Assert.assertEquals("第1章", comicInfo.getSections().get(2).getName());
 		} finally {
 			engine.close();
 		}

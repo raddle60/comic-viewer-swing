@@ -58,6 +58,8 @@ com.raddle.comic
 
 `ComicViewer` holds all viewer state as fields (current channel/comic/section/page) and drives `ComicPluginEngine`; the dialog is a separate JDialog that talks to its own short-lived engine instance.
 
+`OpenComicDialog` 打开的时候会把选中（最近看的那一）章滚到章节列表可视区域的中间：先 `ensureIndexIsVisible(0)` 回到顶部，再 `ensureIndexIsVisible(选中的下标 + 6)`，选中的那一章就落在中间了。`ensureIndexIsVisible` 只会滚最少的长度，所以必须先回到顶部，否则每次打开停在哪里都不一样。窗口刚显示出来时列表才有真实高度，所以滚动要等 `setVisible` 之后做（`scrollSelectedToMiddle`），列表还没布局好时重试几次。`windowOpened` 那个事件不能用，它只在窗口第一次显示时来一次。
+
 ### Continuous scroll (连续显示)
 
 `ContinuousScrollModel` owns the scroll position and the page cache; `ComicViewer` only draws what it hands back.
