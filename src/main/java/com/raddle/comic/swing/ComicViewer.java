@@ -162,8 +162,8 @@ public class ComicViewer {
 	/** 单页模式下原图，缩放后的图片从这里算出来 */
 	private Image originImage;
 	private Map<String,String> comicUpdate = new HashMap<String, String>();
-	/** 已经提示过要不要继续下一章了，位置动了就重新提示 */
-	private boolean nextChapterPromptShown = false;
+	/** 章末已经处理过了（换过章或者换失败了），位置动了才重新处理 */
+	private boolean nextChapterHandled = false;
 	/** 滚轮一格滚动的距离 */
 	private static final int WHEEL_SCROLL_DISTANCE = 150;
 	/** 页码离图片右边留的间隙 */
@@ -786,13 +786,16 @@ public class ComicViewer {
 			}
 		}
 		if (moved) {
-			// 位置动了，下次到底了还能再提示
-			nextChapterPromptShown = false;
+			// 位置动了，下次到底了还能再换章
+			nextChapterHandled = false;
 		}
-		if (continueModel.isBlockedAtEnd() && !nextChapterPromptShown) {
-			// 已经到本章最后一页了，用户还在往章末外面拉，问一下要不要继续下一章
-			nextChapterPromptShown = true;
-			promptNextChapter();
+		if (continueModel.isBlockedAtEnd() && !nextChapterHandled) {
+			// 已经到本章最后一页了，直接换到下一章，换章的时候有进度框
+			nextChapterHandled = true;
+			if (!changePage(true)) {
+				// 现在换不了（正在加载），等下一次滚动再换
+				nextChapterHandled = false;
+			}
 		}
 		continueModel.preload(picPane.getHeight());
 		updateContinueTitle();
@@ -994,9 +997,16 @@ public class ComicViewer {
 				+ StringUtils.defaultString(sectionName, sectionId) + " - " + pageNo + "/" + pageMap.size();
 	}
 
-	private void changePage(boolean isNextPage) {
+	/**
+	 * 翻页。本章没有下一页了就换章。
+	 *
+	 * @param isNextPage true翻到下一页，false翻到上一页
+	 * @return true表示这次翻页有结果（翻到了下一页、开始换章、或者已经到头了），
+	 *         false表示现在翻不了（比如正在加载），过一会儿再来
+	 */
+	private boolean changePage(boolean isNextPage) {
 		if (pageNo == null || loading || pageMap.size() == 0) {
-			return;
+			return false;
 		}
 		loading = true;
 		frame.setTitle(getBasicTitle() + " - 正在翻页");
@@ -1008,7 +1018,7 @@ public class ComicViewer {
 			loading = false;
 			frame.setTitle(getBasicTitle());
 			showImage(isNextPage);
-			return;
+			return true;
 		}
 		// 本章没有下一页了，换章
 		SectionInfo nextSection = getAdjacentSection(isNextPage);
@@ -1019,11 +1029,12 @@ public class ComicViewer {
 			}
 			frame.setTitle(getBasicTitle());
 			JOptionPane.showMessageDialog(frame, isNextPage ? "已是最后一章" : "已是第一章");
-			return;
+			return true;
 		}
 		// 换章要重新取页面信息，要走网络。放到后台线程取，这边弹个进度框，
 		// 不然界面会卡住不动，用户在这期间乱操作也容易把状态弄乱。
 		loadNextSection(nextSection, isNextPage);
+		return true;
 	}
 
 	/**
@@ -1089,7 +1100,9 @@ public class ComicViewer {
 		if (error != null) {
 			// 失败了还是停在原来这一章，用户可以再试一次
 			loading = false;
-			nextChapterPromptShown = false;
+			// 别自己一直重试，不然错误提示会一个接一个地弹。
+			// 用户再滚一下，位置动了就会重新换章。
+			nextChapterHandled = true;
 			frame.setTitle(getBasicTitle());
 			JOptionPane.showMessageDialog(frame, "获取页面信息失败 , " + error);
 			return;
@@ -1105,8 +1118,8 @@ public class ComicViewer {
 		// 换章了，缓存里还是上一章的图片，要清掉
 		continueModel.setPageCount(pageMap.size());
 		continueModel.reset(pageNo);
-		// 换了新的一章，这一章看完了要重新问要不要继续下一章
-		nextChapterPromptShown = false;
+		// 换了新的一章，这一章看完了要重新换章
+		nextChapterHandled = false;
 		loading = false;
 		frame.setTitle(getBasicTitle());
 		showImage(isNextPage);
@@ -1212,9 +1225,9 @@ public class ComicViewer {
 	private void moveViewDown() {
 		if (complexImage != null) {
 			if (continueViewItem.isSelected() && pageMap.size() > 0) {
-				// 连续显示：按页滚动，翻到本章最后一页问问要不要继续下一章
+				// 连续显示：按页滚动，翻到本章最后一页就换到下一章
 				if (continueModel.isAtBottom()) {
-					promptNextChapter();
+					changePage(true);
 				} else {
 					scrollContinue((int) (picPane.getHeight() * 0.9));
 				}
@@ -1231,8 +1244,8 @@ public class ComicViewer {
 				movePic((int) (picPane.getWidth() * 0.9), 0);
 				picPane.repaint();
 			} else if (pageNo != null && pageNo >= pageMap.size()) {
-				// 本章最后一页了，问一下要不要继续下一章
-				promptNextChapter();
+				// 本章最后一页了，直接换到下一章，换章的时候有进度框
+				changePage(true);
 			} else {
 				// 本页看完了，下一页
 				changePage(true);
@@ -1296,27 +1309,6 @@ public class ComicViewer {
 			return null;
 		}
 		return sections.get(next);
-	}
-
-	/**
-	 * 已经到本章最后一页了，提示要不要继续下一章。
-	 * 已经是最后一章就说明一下。
-	 */
-	private void promptNextChapter() {
-		List<SectionInfo> sections = getSectionList();
-		if (sections == null || sections.size() == 0) {
-			JOptionPane.showMessageDialog(null, "没有获取到章节信息");
-			return;
-		}
-		if (getAdjacentSection(sections, sectionId, true) == null) {
-			JOptionPane.showMessageDialog(null, "已经是最后一章");
-			return;
-		}
-		int option = JOptionPane.showConfirmDialog(null, "本章已经看完了，是否继续下一章？", "提示", JOptionPane.YES_NO_OPTION);
-		if (option == JOptionPane.YES_OPTION) {
-			// 换到下一章的第一页
-			changePage(true);
-		}
 	}
 
 	private void openComic() {
