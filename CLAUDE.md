@@ -49,6 +49,7 @@ com.raddle.comic
 │   ├── ComicViewer        main window: menus, keybindings, paging, fullscreen, scroll
 │   ├── ContinuousScrollModel  continuous-scroll model: scroll position + page cache + preloading
 │   ├── OpenComicDialog    pick channel → comic id → section → page
+│   ├── WindowTitle        窗口标题的各个部分（状态、失败原因、下载进度）
 │   └── RecentViewMenuItem recent-list menu entry (shows "有更新" in red)
 ├── RecentViewHelper    ~/.comic-view/recent-view.xml (last 30 reads)
 ├── RecentViewInfo     one entry of the recent-view list
@@ -162,5 +163,11 @@ View menu (查看):
 | 适合高度 | scale each page to the pane height |
 
 Scrolling to the end of a chapter switches to the next one directly — there is no confirmation prompt, the progress dialog while the new chapter is fetched is enough of a signal. If the next chapter cannot be fetched the viewer stays where it is and can be retried (scroll away and back to the end).
+
+### 窗口标题
+
+标题由几部分组成：基本信息（渠道、漫画、章节、页码）、加载失败的原因、正在做的事（`loading`、`正在翻页`）、连续下载的进度（`已下载 12/30`）。
+
+以前各处都是直接 `frame.setTitle(...)`，改一处就把别处的信息冲掉了。现在这些部分放在 `WindowTitle` 对象里，各处只改自己关心的那一部分（`title.setStatus(...)` 等），改完调 `ComicViewer.refreshTitle()`，由 `buildTitle()` 统一按属性拼出来显示。加新的标题内容时，加一个属性 + 在 `buildTitle()` 里拼上就行，**不要再直接 `frame.setTitle()`**。
 
 Switching chapters has to fetch the new chapter's page list, which is a network call. It runs on a background thread (`ComicViewer.loadNextSection`) and a **modal progress dialog** ("正在加载下一章…") blocks the main window while it runs — the user can't scroll, press keys or click around halfway through, so the page number and the chapter can't get out of sync. The pages are only swapped in once the whole list came back (`applyLoadedSection`); on failure the viewer stays on the old chapter and the error is shown after the progress dialog is closed.

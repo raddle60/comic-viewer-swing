@@ -164,6 +164,11 @@ public class ComicViewer {
 	private Map<String,String> comicUpdate = new HashMap<String, String>();
 	/** 章末已经处理过了（换过章或者换失败了），位置动了才重新处理 */
 	private boolean nextChapterHandled = false;
+	/** 窗口标题的各个部分，改哪一部分由各处自己管，最后统一拼出来显示 */
+	private final WindowTitle title = new WindowTitle();
+	/** 标题上"正在做的事"的状态 */
+	private static final String STATUS_LOADING = "loading";
+	private static final String STATUS_CHANGING_PAGE = "正在翻页";
 	/** 滚轮一格滚动的距离 */
 	private static final int WHEEL_SCROLL_DISTANCE = 150;
 	/** 页码离图片右边留的间隙 */
@@ -778,7 +783,7 @@ public class ComicViewer {
 		int curPageNo = continueModel.getCurPageNo();
 		if (curPageNo != pageNo) {
 			pageNo = curPageNo;
-			frame.setTitle(getBasicTitle());
+			refreshTitle();
 			try {
 				RecentViewHelper.updateRecentView(channelInfo, comicId, comicName, sectionId, sectionName, pageNo, pageMap.size());
 			} catch (Exception e) {
@@ -810,16 +815,61 @@ public class ComicViewer {
 		if (channelInfo == null) {
 			return;
 		}
-		String title = getBasicTitle();
-		String failed = continueModel.getFailedReason();
-		if (failed != null) {
-			frame.setTitle(title + " - " + failed);
-		} else if (continueModel.isLoading()) {
-			// 跟 showImage 里的写法保持一致
-			frame.setTitle(title + " - loading");
-		} else {
-			frame.setTitle(title);
+		title.setFailedReason(continueModel.getFailedReason());
+		title.setDownloadProgress(continueModel.getDownloadProgress());
+		// "loading"这个状态归连续显示的模型管，"正在翻页"是翻页的时候管的，别互相冲掉
+		String status = title.getStatus();
+		if (status == null || STATUS_LOADING.equals(status)) {
+			title.setStatus(continueModel.isLoading() ? STATUS_LOADING : null);
 		}
+		refreshTitle();
+	}
+
+	/**
+	 * 按标题对象里的各个属性拼出标题，显示到窗口上。
+	 *
+	 * 标题的每一部分都有它自己的地方管，这里只管拼起来显示，
+	 * 所以不管谁改标题，都不会把别的部分弄丢。
+	 */
+	private void refreshTitle() {
+		if (frame == null || channelInfo == null) {
+			return;
+		}
+		if (!EventQueue.isDispatchThread()) {
+			// 后台线程里改的标题，交给事件线程去显示
+			EventQueue.invokeLater(new Runnable() {
+				@Override
+				public void run() {
+					refreshTitle();
+				}
+			});
+			return;
+		}
+		frame.setTitle(buildTitle(getBasicTitle(), title));
+	}
+
+	/**
+	 * 把标题的各个部分拼起来。
+	 *
+	 * @param basicTitle 基本信息：渠道、漫画、章节、页码
+	 * @param title 标题的其它部分
+	 * @return 拼好的标题
+	 */
+	static String buildTitle(String basicTitle, WindowTitle title) {
+		StringBuilder sb = new StringBuilder(basicTitle);
+		String failed = title.getFailedReason();
+		String status = title.getStatus();
+		if (StringUtils.isNotBlank(failed)) {
+			// 失败了比正在做的事更重要，只显示失败的原因
+			sb.append(" - ").append(failed);
+		} else if (StringUtils.isNotBlank(status)) {
+			sb.append(" - ").append(status);
+		}
+		String progress = title.getDownloadProgress();
+		if (StringUtils.isNotBlank(progress)) {
+			sb.append(" - ").append(progress);
+		}
+		return sb.toString();
 	}
 
 	/** 页码文字的大小，图片缩放了文字也跟着缩放 */
@@ -924,7 +974,8 @@ public class ComicViewer {
 	private synchronized void showImage(final boolean isNextPage) {
 		if (!loading && pageMap.size() > 0) {
 			loading = true;
-			frame.setTitle(getBasicTitle() + " - loading");
+			title.setStatus(STATUS_LOADING);
+			refreshTitle();
 			new Thread() {
 
 				@Override
@@ -983,7 +1034,11 @@ public class ComicViewer {
 							// 连续显示的加载状态由 updateContinueTitle 管，别把" loading"冲掉
 							updateContinueTitle();
 						} else {
-							frame.setTitle(getBasicTitle());
+							// 单页模式不显示连续显示那边的失败原因和下载进度
+							title.setStatus(null);
+							title.setFailedReason(null);
+							title.setDownloadProgress(null);
+							refreshTitle();
 						}
 						loading = false;
 					}
@@ -1009,14 +1064,16 @@ public class ComicViewer {
 			return false;
 		}
 		loading = true;
-		frame.setTitle(getBasicTitle() + " - 正在翻页");
+		title.setStatus(STATUS_CHANGING_PAGE);
+		refreshTitle();
 		int nextPageNo = isNextPage ? pageNo + 1 : pageNo - 1;
 		PageInfo pageInfo = pageMap.get(nextPageNo);
 		if (pageInfo != null) {
 			// 本章还有下一页
 			pageNo = nextPageNo;
 			loading = false;
-			frame.setTitle(getBasicTitle());
+			title.setStatus(null);
+			refreshTitle();
 			showImage(isNextPage);
 			return true;
 		}
@@ -1027,7 +1084,8 @@ public class ComicViewer {
 			if (isFullScreen) {
 				exitFullScreen();
 			}
-			frame.setTitle(getBasicTitle());
+			title.setStatus(null);
+			refreshTitle();
 			JOptionPane.showMessageDialog(frame, isNextPage ? "已是最后一章" : "已是第一章");
 			return true;
 		}
@@ -1103,7 +1161,8 @@ public class ComicViewer {
 			// 别自己一直重试，不然错误提示会一个接一个地弹。
 			// 用户再滚一下，位置动了就会重新换章。
 			nextChapterHandled = true;
-			frame.setTitle(getBasicTitle());
+			title.setStatus(null);
+			refreshTitle();
 			JOptionPane.showMessageDialog(frame, "获取页面信息失败 , " + error);
 			return;
 		}
@@ -1121,7 +1180,8 @@ public class ComicViewer {
 		// 换了新的一章，这一章看完了要重新换章
 		nextChapterHandled = false;
 		loading = false;
-		frame.setTitle(getBasicTitle());
+		title.setStatus(null);
+		refreshTitle();
 		showImage(isNextPage);
 	}
 
@@ -1358,7 +1418,7 @@ public class ComicViewer {
 			// 创建新的frame
 			createFrame();
 			if (complexImage != null) {
-				frame.setTitle(getBasicTitle());
+				refreshTitle();
 			}
 			frame.setVisible(true);
 		}

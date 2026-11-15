@@ -430,6 +430,45 @@ public class ContinuousScrollModelTest {
 	}
 
 	@Test
+	public void 标题上能看到连续下载的进度() throws Exception {
+		final List<Integer> requested = Collections.synchronizedList(new ArrayList<Integer>());
+		ContinuousScrollModel model = new ContinuousScrollModel(PAGE_COUNT, new ContinuousScrollModel.PageLoader() {
+			@Override
+			public boolean isCached(int pageNo) {
+				return false;
+			}
+
+			@Override
+			public Image load(int pageNo) throws Exception {
+				requested.add(pageNo);
+				// 慢一点，才能看到下载中间的进度
+				Thread.sleep(30);
+				return new BufferedImage(PAGE_WIDTH, PAGE_HEIGHT, BufferedImage.TYPE_INT_RGB);
+			}
+		}, null);
+		model.setContinuousDownload(true);
+		model.reset(1);
+		// 还没开始下，标题上不用显示进度
+		Assert.assertNull(model.getDownloadProgress());
+		model.loadPage(1);
+
+		// 下载过程中要有进度
+		for (int i = 0; i < 300 && requested.size() < 3; i++) {
+			Thread.sleep(20);
+		}
+		String progress = model.getDownloadProgress();
+		Assert.assertNotNull("下载过程中标题上要显示进度", progress);
+		Assert.assertTrue("进度里要有总页数：" + progress, progress.endsWith("/" + PAGE_COUNT));
+
+		// 全部下完了就不显示了
+		for (int i = 0; i < 300 && requested.size() < PAGE_COUNT; i++) {
+			Thread.sleep(20);
+		}
+		Thread.sleep(300);
+		Assert.assertNull("下完了标题上不再显示进度", model.getDownloadProgress());
+	}
+
+	@Test
 	public void 连续下载出错就停下来() throws Exception {
 		final List<Integer> requested = Collections.synchronizedList(new ArrayList<Integer>());
 		ContinuousScrollModel model = new ContinuousScrollModel(PAGE_COUNT, new ContinuousScrollModel.PageLoader() {

@@ -475,6 +475,20 @@ class ContinuousScrollModel {
 	}
 
 	/**
+	 * 连续下载的进度，窗口标题上要显示。
+	 *
+	 * 没在下载，或者本章已经全部下载完了，返回 null，标题上就不显示了。
+	 *
+	 * @return "已下载 12/30" 这样的字
+	 */
+	String getDownloadProgress() {
+		if (!continuousDownload || chapterDownloaded || !continuousDownloading.get()) {
+			return null;
+		}
+		return "已下载 " + downloadedTo + "/" + pageCount;
+	}
+
+	/**
 	 * 连续下载：从 fromPage 开始接着往下下，一直下到本章最后一页。
 	 * 中途出错就停下来，把错误交给界面提示。
 	 */
@@ -524,6 +538,8 @@ class ContinuousScrollModel {
 							break;
 						}
 						downloadedTo = Math.max(downloadedTo, pageNo);
+						// 下载进度变了，标题上要跟着显示
+						notifyPageChanged();
 					}
 					if (downloadedTo >= pageCount) {
 						// 整章都下完了
@@ -532,6 +548,8 @@ class ContinuousScrollModel {
 				} finally {
 					continuousDownloading.set(false);
 					logger.log("end continuous download");
+					// 通知一下界面：下完了（标题上不再显示进度），或者中途停了
+					notifyPageChanged();
 				}
 			}
 		}, "continuous-download").start();
