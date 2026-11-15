@@ -114,6 +114,12 @@ class ContinuousScrollModel {
 	private final AtomicBoolean continuousDownloading = new AtomicBoolean(false);
 	/** 加载失败的页和失败原因 */
 	private final Map<Integer, String> failedPages = new ConcurrentHashMap<Integer, String>();
+	/** 每页连续失败的次数，下好了就清掉 */
+	private final Map<Integer, Integer> failedCount = new ConcurrentHashMap<Integer, Integer>();
+	/** 连续失败多少次就问用户要不要跳过这一页 */
+	private static final int MAX_FAILED_COUNT = 3;
+	/** 某一页连续失败多次，交给界面问用户要不要跳过 */
+	private DownloadFailedListener failedListener;
 
 	/** 视口顶部所在页 */
 	private int scrollPage;
@@ -133,6 +139,26 @@ class ContinuousScrollModel {
 		this.onPageLoaded = onPageLoaded;
 	}
 
+	/**
+	 * 设置"某一页连续下载失败多次"的回调。
+	 *
+	 * @param listener 回调，界面用它来问用户要不要跳过这一页
+	 */
+	void setDownloadFailedListener(DownloadFailedListener listener) {
+		this.failedListener = listener;
+	}
+
+	/**
+	 * 某一页连续下载失败多次时，交给界面去问用户。
+	 */
+	interface DownloadFailedListener {
+		/**
+		 * @param pageNo 失败的页
+		 * @param failedCount 这一页连续失败了多少次
+		 */
+		void onDownloadFailed(int pageNo, int failedCount);
+	}
+
 	void setPageCount(int pageCount) {
 		this.pageCount = pageCount;
 	}
@@ -142,6 +168,7 @@ class ContinuousScrollModel {
 		pageCache.clear();
 		loadingPages.clear();
 		failedPages.clear();
+		failedCount.clear();
 		downloadedTo = 0;
 		chapterDownloaded = false;
 		// 换章了，之前记着的滚动距离也要清掉，不然新的一章会往下偏一点
@@ -403,12 +430,15 @@ class ContinuousScrollModel {
 			if (image == null) {
 				// 加载失败要记下来，不然会一直重试
 				failedPages.put(pageNo, "图片下载失败");
+				onDownloadFailed(pageNo);
 				notifyPageChanged();
 				return null;
 			}
 			page = new Page(pageNo, image);
 			pageCache.put(pageNo, page);
 			failedPages.remove(pageNo);
+			// 下好了，失败次数清掉
+			failedCount.remove(pageNo);
 			applyPendingOffset();
 			if (onPageLoaded != null) {
 				// 页放进缓存了，让界面重画一下
@@ -420,9 +450,55 @@ class ContinuousScrollModel {
 		} catch (Exception e) {
 			logger.log(e.getMessage(), e);
 			failedPages.put(pageNo, shortReason(e));
+			onDownloadFailed(pageNo);
 			notifyPageChanged();
 			return null;
 		}
+	}
+
+	/**
+	 * 记一次失败。连续失败多次就告诉界面，问用户要不要跳过这一页。
+	 *
+	 * @param pageNo 失败的页
+	 */
+	private void onDownloadFailed(int pageNo) {
+		Integer count = failedCount.get(pageNo);
+		int newCount = count == null ? 1 : count + 1;
+		failedCount.put(pageNo, newCount);
+		if (newCount >= MAX_FAILED_COUNT && failedListener != null) {
+			failedListener.onDownloadFailed(pageNo, newCount);
+		}
+	}
+
+	/**
+	 * 这一页连续失败的次数。
+	 */
+	int getFailedCount(int pageNo) {
+		Integer count = failedCount.get(pageNo);
+		return count == null ? 0 : count;
+	}
+
+	/**
+	 * 把这一页的失败次数清掉。用户不想跳过这一页的时候用，
+	 * 清掉以后再失败这么多次才问一次。
+	 */
+	void resetFailedCount(int pageNo) {
+		failedCount.remove(pageNo);
+	}
+
+	/**
+	 * 重新加载这一页。清掉失败的标记再试一次。
+	 *
+	 * "跳过这一页"之后要用本地存的 not found 图显示，就靠它。
+	 *
+	 * @param pageNo 要重新加载的页
+	 */
+	void reloadPage(int pageNo) {
+		failedPages.remove(pageNo);
+		if (pageCache.containsKey(pageNo)) {
+			return;
+		}
+		loadPage(pageNo);
 	}
 
 	/** 页的状态变了（加载好了或者失败了），通知界面更新 */

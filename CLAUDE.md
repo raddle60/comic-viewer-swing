@@ -124,6 +124,15 @@ Images are read with `ImageIO.read()`. The JDK only supports jpeg/png/gif/bmp/wb
 
 Logs go to stdout and `~/.comic-view/logs/comic-view.log` (logback, `src/main/resources/logback.xml`).
 
+### 下载失败就跳过这一页
+
+一页图片连续下载失败 3 次（`ContinuousScrollModel` 记的失败次数，下好了就清掉），就弹框问用户「连续下载失败多次，是否跳过这一页？」。
+
+- 选择跳过：生成一张 600x900 的 "图片不存在" 图（`ComicViewer.writeNotFoundImage`）写进缓存目录，用它代替真正的图片。图片已经在本地了，`isCached` 就是true，下次不会再去远程下载这一页。
+- 选择不跳过：把失败次数清掉，再失败 3 次才问一次，免得框一个接一个地弹。
+- 跳过的页在换章、换漫画时要清掉（`skippedPages`），页码是每一章自己的。
+- 本地路径的图片（不是远程地址）不能跳过 —— 那个文件就是用户的文件，不能拿 not found 的图覆盖掉。
+
 ### HTTP 连接池
 
 `HttpHelper` 用一个全局的 `CloseableHttpClient`，keep-alive 默认就是开着的：HTTP/1.1 持久连接，响应实体读完以后连接放回池子里，下一个请求接着用（`getRemotePage` 用 `EntityUtils.toString`，`saveRemotePage` 用 `IOUtils.copy` + `EntityUtils.consume`，所以连接都会还回池子）。

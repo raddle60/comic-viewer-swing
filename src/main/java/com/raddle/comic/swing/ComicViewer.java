@@ -30,6 +30,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.imageio.ImageIO;
 import javax.swing.BorderFactory;
@@ -134,26 +135,45 @@ public class ComicViewer {
 			}
 		}
 	};
-	/** 连续显示的滚动模型 */
-	private ContinuousScrollModel continueModel = new ContinuousScrollModel(0, continuePageLoader, new Runnable() {
-		@Override
-		public void run() {
-			// 页在后台加载好了，重画一下，不然要等下次滚动才看到
-			EventQueue.invokeLater(new Runnable() {
-				@Override
-				public void run() {
-					// 之前滚过去但没滚到的那段距离，平滑地补上，
-					// 不然页一下载好画面就突然跳一下
-					int pending = continueModel.takePendingApply();
-					if (pending != 0) {
-						smoothScroll(pending);
+
+	/**
+	 * 新建连续显示的模型，把回调都挂上。
+	 *
+	 * @param pageCount 本章有多少页
+	 * @return 建好的模型
+	 */
+	private ContinuousScrollModel newContinueModel(int pageCount) {
+		ContinuousScrollModel model = new ContinuousScrollModel(pageCount, continuePageLoader, new Runnable() {
+			@Override
+			public void run() {
+				// 页在后台加载好了，重画一下，不然要等下次滚动才看到
+				EventQueue.invokeLater(new Runnable() {
+					@Override
+					public void run() {
+						// 之前滚过去但没滚到的那段距离，平滑地补上，
+						// 不然页一下载好画面就突然跳一下
+						int pending = continueModel.takePendingApply();
+						if (pending != 0) {
+							smoothScroll(pending);
+						}
+						updateContinueTitle();
+						picPane.repaint();
 					}
-					updateContinueTitle();
-					picPane.repaint();
-				}
-			});
-		}
-	});
+				});
+			}
+		});
+		// 某一页连续下载失败多次，问用户要不要跳过
+		model.setDownloadFailedListener(new ContinuousScrollModel.DownloadFailedListener() {
+			@Override
+            public void onDownloadFailed(int pageNo, int failedCount) {
+				ComicViewer.this.onDownloadFailed(pageNo, failedCount);
+			}
+		});
+		return model;
+	}
+
+	/** 连续显示的滚动模型 */
+	private ContinuousScrollModel continueModel = newContinueModel(0);
 	private JCheckBoxMenuItem suiteWidthMenuItem;
 	private JCheckBoxMenuItem seamlessViewItem;
 	private JCheckBoxMenuItem continuousDownloadItem;
@@ -166,6 +186,10 @@ public class ComicViewer {
 	private boolean nextChapterHandled = false;
 	/** 窗口标题的各个部分，改哪一部分由各处自己管，最后统一拼出来显示 */
 	private final WindowTitle title = new WindowTitle();
+	/** 用户选择跳过的页，这些页用 not found 的图代替，不再去远程下载 */
+	private final Set<Integer> skippedPages = ConcurrentHashMap.newKeySet();
+	/** 正在问用户要不要跳过的页，别重复弹框 */
+	private final Set<Integer> askingSkipPages = ConcurrentHashMap.newKeySet();
 	/** 标题上"正在做的事"的状态 */
 	private static final String STATUS_LOADING = "loading";
 	private static final String STATUS_CHANGING_PAGE = "正在翻页";
@@ -1177,12 +1201,133 @@ public class ComicViewer {
 		// 换章了，缓存里还是上一章的图片，要清掉
 		continueModel.setPageCount(pageMap.size());
 		continueModel.reset(pageNo);
+		// 页码是每一章自己的，换章了跳过的页也要重新算
+		skippedPages.clear();
 		// 换了新的一章，这一章看完了要重新换章
 		nextChapterHandled = false;
 		loading = false;
 		title.setStatus(null);
 		refreshTitle();
 		showImage(isNextPage);
+	}
+
+	/**
+	 * 某一页连续下载失败多次，问用户要不要跳过这一页。
+	 *
+	 * 跳过以后用一张 not found 的图代替，图片存到本地，
+	 * 下次就不会再去远程下载这一页了。
+	 *
+	 * @param pageNo 失败的页
+	 * @param failedCount 这一页连续失败了多少次
+	 */
+	private void onDownloadFailed(final int pageNo, int failedCount) {
+		if (skippedPages.contains(pageNo)) {
+			// 已经跳过过了，别再问
+			return;
+		}
+		if (!askingSkipPages.add(pageNo)) {
+			// 已经在问了，别重复弹框
+			return;
+		}
+		// 弹框要在事件线程上
+		EventQueue.invokeLater(new Runnable() {
+			@Override
+			public void run() {
+				try {
+					askSkipPage(pageNo);
+				} finally {
+					askingSkipPages.remove(pageNo);
+				}
+			}
+		});
+	}
+
+	/**
+	 * 问用户这一页是不是不下了。
+	 */
+	private void askSkipPage(int pageNo) {
+		int option = JOptionPane.showConfirmDialog(frame, "第" + pageNo + "页连续下载失败多次，是否跳过这一页？\n"
+				+ "跳过以后用一张 not found 的图代替，不会再去下载这一页。", "提示", JOptionPane.YES_NO_OPTION);
+		if (option == JOptionPane.YES_OPTION) {
+			skipPage(pageNo);
+		} else {
+			// 用户不想跳过，把失败次数清掉，再失败这么多次才问
+			continueModel.resetFailedCount(pageNo);
+		}
+	}
+
+	/**
+	 * 跳过这一页：写一张 not found 的图到缓存目录，然后用它代替真正的图片。
+	 *
+	 * 图片已经存在本地了，下次就不会再去远程下载这一页。
+	 */
+	private void skipPage(int pageNo) {
+		PageInfo pageInfo = pageMap.get(pageNo);
+		if (pageInfo == null) {
+			return;
+		}
+		if (isLocalPage(pageInfo)) {
+			// 本地路径的图片就是用户的文件，不能拿 not found 的图覆盖掉
+			logger.log("第{}页是本地文件，不能跳过", pageNo);
+			continueModel.resetFailedCount(pageNo);
+			return;
+		}
+		File cacheFile = getLocalFile(pageInfo);
+		try {
+			writeNotFoundImage(cacheFile);
+		} catch (Exception e) {
+			logger.log(e.getMessage(), e);
+			JOptionPane.showMessageDialog(frame, "保存 not found 图片失败，" + e.getMessage());
+			continueModel.resetFailedCount(pageNo);
+			return;
+		}
+		skippedPages.add(pageNo);
+		// 让模型重新加载这一页，这次从本地读 not found 的图
+		continueModel.reloadPage(pageNo);
+	}
+
+	/**
+	 * 造一张"图片不存在"的图，保存到缓存目录。
+	 *
+	 * 跳过这一页以后用它代替真正的图片，下次就不用再去远程下载了。
+	 *
+	 * @param file 缓存文件
+	 */
+	static void writeNotFoundImage(File file) throws IOException {
+		int width = 600;
+		int height = 200;
+		BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+		Graphics2D g = image.createGraphics();
+		try {
+			g.setColor(new Color(60, 60, 60));
+			g.fillRect(0, 0, width, height);
+			g.setColor(new Color(210, 210, 210));
+			g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 40));
+			// 字写在中间
+			String text = "图片不存在";
+			int textWidth = g.getFontMetrics().stringWidth(text);
+			int textHeight = g.getFontMetrics().getHeight();
+			g.drawString(text, (width - textWidth) / 2, (height - textHeight) / 2 + g.getFontMetrics().getAscent());
+		} finally {
+			g.dispose();
+		}
+		File parentFile = file.getParentFile();
+		if (parentFile != null && !parentFile.exists()) {
+			parentFile.mkdirs();
+		}
+		ImageIO.write(image, imageFormat(file), file);
+	}
+
+	/**
+	 * 缓存文件用什么格式存。jpg 就存 jpg，别的存 png。
+	 * 文件名后缀和内容对不上也没关系，读图片的时候是看内容判断格式的。
+	 */
+	private static String imageFormat(File file) {
+		String name = FilenameUtils.getExtension(file.getName()).toLowerCase();
+		if ("jpg".equals(name) || "jpeg".equals(name)) {
+			return "jpg";
+		}
+		return "png";
 	}
 
 	/**
@@ -1213,12 +1358,19 @@ public class ComicViewer {
 
 	/** 这一页在本地对应的文件，本地路径就是图片本身，远程地址对应缓存目录里的文件 */
 	private File getLocalFile(PageInfo pageInfo) {
-		// 本地文件 c:/xxx 或者 /xx/xx xxx/xxx
-		if (pageInfo.getPageUrl().charAt(1) == ':' || pageInfo.getPageUrl().indexOf(':') == -1) {
+		if (isLocalPage(pageInfo)) {
 			return new File(pageInfo.getPageUrl());
 		}
 		return new File(System.getProperty("user.home") + "/.comic-view/cache/img/" + channelInfo.getName() + "/" + comicId + "/"
 				+ sectionId + "/" + StringUtils.defaultIfBlank(pageInfo.getFilename(), FilenameUtils.getName(pageInfo.getPageUrl())));
+	}
+
+	/**
+	 * 这一页是不是本地文件。本地文件 c:/xxx 或者 /xx/xx xxx/xxx
+	 */
+	private static boolean isLocalPage(PageInfo pageInfo) {
+		String pageUrl = pageInfo.getPageUrl();
+		return pageUrl.charAt(1) == ':' || pageUrl.indexOf(':') == -1;
 	}
 
 	/**
@@ -1256,8 +1408,7 @@ public class ComicViewer {
 	 */
 	private Image loadImage(PageInfo pageInfo, boolean showError) throws IOException {
 		Image img = null;
-		// 本地文件 c:/xxx 或者 /xx/xx xxx/xxx
-		if (pageInfo.getPageUrl().charAt(1) == ':' || pageInfo.getPageUrl().indexOf(':') == -1) {
+		if (isLocalPage(pageInfo)) {
 			img = ImageIO.read(new File(pageInfo.getPageUrl()));
 		} else {
 			// 缓存
@@ -1387,23 +1538,9 @@ public class ComicViewer {
 			sectionList = null;
 			picStartPoint.y = 0;
 			// 新章节，重新建一个滚动模型，缓存清空
-			continueModel = new ContinuousScrollModel(pageMap.size(), continuePageLoader, new Runnable() {
-				@Override
-				public void run() {
-					EventQueue.invokeLater(new Runnable() {
-						@Override
-						public void run() {
-							// 之前滚过去但没滚到的那段距离，平滑地补上
-							int pending = continueModel.takePendingApply();
-							if (pending != 0) {
-								smoothScroll(pending);
-							}
-							updateContinueTitle();
-							picPane.repaint();
-						}
-					});
-				}
-			});
+			continueModel = newContinueModel(pageMap.size());
+			// 换漫画了，跳过的页重新算
+			skippedPages.clear();
 			continueModel.setSeamless(seamlessViewItem.isSelected());
 			continueModel.setContinuousDownload(continuousDownloadItem.isSelected());
 			showImage(true);
