@@ -240,7 +240,7 @@ function loadRemoteImage(comicId, sectionId, pageNo, imageUrl) {
 			return;
 		} catch (e) {
 			log.info("下载图片失败，换一个图片服务器重试 comicId[" + comicId + "] sectionId[" + sectionId + "] pageNo[" + pageNo
-					+ "] host[" + IMAGE_HOSTS[i] + "]", e);
+					+ "] host[" + IMAGE_HOSTS[i] + "] url[" + url + "] " + e);
 		}
 	}
 	log.info("所有图片服务器都没下载成功 comicId[" + comicId + "] sectionId[" + sectionId + "] pageNo[" + pageNo + "]");
