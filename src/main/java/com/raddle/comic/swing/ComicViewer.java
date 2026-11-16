@@ -22,7 +22,6 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
 import java.awt.event.MouseWheelEvent;
 import java.awt.event.MouseWheelListener;
-import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.util.Deque;
@@ -62,6 +61,7 @@ import com.raddle.comic.ViewConfigHelper;
 import com.raddle.comic.engine.ChannelInfo;
 import com.raddle.comic.engine.ComicInfo;
 import com.raddle.comic.engine.ComicPluginEngine;
+import com.raddle.comic.engine.HttpHelper;
 import com.raddle.comic.engine.PageInfo;
 import com.raddle.comic.engine.SectionInfo;
 
@@ -1274,7 +1274,7 @@ public class ComicViewer {
 		}
 		File cacheFile = getLocalFile(pageInfo);
 		try {
-			writeNotFoundImage(cacheFile);
+			HttpHelper.writeNotFoundImage(cacheFile);
 		} catch (Exception e) {
 			logger.log(e.getMessage(), e);
 			JOptionPane.showMessageDialog(frame, "保存 not found 图片失败，" + e.getMessage());
@@ -1284,50 +1284,6 @@ public class ComicViewer {
 		skippedPages.add(pageNo);
 		// 让模型重新加载这一页，这次从本地读 not found 的图
 		continueModel.reloadPage(pageNo);
-	}
-
-	/**
-	 * 造一张"图片不存在"的图，保存到缓存目录。
-	 *
-	 * 跳过这一页以后用它代替真正的图片，下次就不用再去远程下载了。
-	 *
-	 * @param file 缓存文件
-	 */
-	static void writeNotFoundImage(File file) throws IOException {
-		int width = 600;
-		int height = 200;
-		BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-		Graphics2D g = image.createGraphics();
-		try {
-			g.setColor(new Color(60, 60, 60));
-			g.fillRect(0, 0, width, height);
-			g.setColor(new Color(210, 210, 210));
-			g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 40));
-			// 字写在中间
-			String text = "图片不存在";
-			int textWidth = g.getFontMetrics().stringWidth(text);
-			int textHeight = g.getFontMetrics().getHeight();
-			g.drawString(text, (width - textWidth) / 2, (height - textHeight) / 2 + g.getFontMetrics().getAscent());
-		} finally {
-			g.dispose();
-		}
-		File parentFile = file.getParentFile();
-		if (parentFile != null && !parentFile.exists()) {
-			parentFile.mkdirs();
-		}
-		ImageIO.write(image, imageFormat(file), file);
-	}
-
-	/**
-	 * 缓存文件用什么格式存。jpg 就存 jpg，别的存 png。
-	 * 文件名后缀和内容对不上也没关系，读图片的时候是看内容判断格式的。
-	 */
-	private static String imageFormat(File file) {
-		String name = FilenameUtils.getExtension(file.getName()).toLowerCase();
-		if ("jpg".equals(name) || "jpeg".equals(name)) {
-			return "jpg";
-		}
-		return "png";
 	}
 
 	/**

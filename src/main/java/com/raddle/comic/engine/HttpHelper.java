@@ -3,6 +3,10 @@
  */
 package com.raddle.comic.engine;
 
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -10,6 +14,8 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+
+import javax.imageio.ImageIO;
 
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
@@ -26,6 +32,9 @@ import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.util.EntityUtils;
+import org.mozilla.javascript.Context;
+import org.mozilla.javascript.Scriptable;
+import org.mozilla.javascript.WrappedException;
 import org.slf4j.LoggerFactory;
 
 import com.raddle.comic.LogWrapper;
@@ -129,7 +138,7 @@ public class HttpHelper {
 				return EntityUtils.toString(entity1, charset);
 			} else {
 				EntityUtils.consume(entity1);
-				throw new RuntimeException("获得内容失败:" + response.getStatusLine() + " , " + url);
+				throw new HttpStatusException(response.getStatusLine().getStatusCode(), response.getStatusLine().toString(), url);
 			}
 		} finally {
 			response.close();
@@ -176,7 +185,7 @@ public class HttpHelper {
 				return EntityUtils.toString(entity1, charset);
 			} else {
 				EntityUtils.consume(entity1);
-				throw new RuntimeException("获得内容失败:" + response.getStatusLine() + " , " + url);
+				throw new HttpStatusException(response.getStatusLine().getStatusCode(), response.getStatusLine().toString(), url);
 			}
 		} finally {
 			response.close();
@@ -214,6 +223,105 @@ public class HttpHelper {
 		File cacheFile = new File(System.getProperty("user.home") + "/.comic-view/cache/img/" + channel + "/" + comicId + "/" + sectionId + "/"
 				+ StringUtils.defaultIfBlank(cacheFileName, FilenameUtils.getName(imageUrl)));
 		saveRemotePage(imageUrl, headers, cacheFile, soTimeoutSec);
+	}
+
+	/**
+	 * 写一张"图片不存在"的图到缓存目录。
+	 *
+	 * 渠道脚本判断这一页是真的下不下来了（不是网络问题），
+	 * 就可以调用它存一张占位图，不用再一个一个图片服务器去试。
+	 * 存完以后这一页在本地就有了，下次不会再去远程下载。
+	 *
+	 * 缓存文件名要跟下载图片时用的名字一样，不然界面找不到。
+	 *
+	 * @param channel 渠道名
+	 * @param comicId 漫画 id
+	 * @param sectionId 章节 id
+	 * @param imageUrl 图片地址，缓存文件名没给的时候用它算
+	 * @param cacheFileName 缓存文件名
+	 */
+	public static void writeNotFoundImage(String channel, String comicId, String sectionId, String imageUrl, String cacheFileName)
+			throws IOException {
+		File cacheFile = new File(System.getProperty("user.home") + "/.comic-view/cache/img/" + channel + "/" + comicId + "/" + sectionId + "/"
+				+ StringUtils.defaultIfBlank(cacheFileName, FilenameUtils.getName(imageUrl)));
+		writeNotFoundImage(cacheFile);
+	}
+
+	/**
+	 * 判断这个异常是不是"图片不存在"（服务器返回了404）。
+	 *
+	 * 渠道脚本判断这一页是真的下不来了（而不是网络问题），
+	 * 想写一张占位图不用再反复试的时候，用它来判断。
+	 *
+	 * @param e 捕获到的异常
+	 * @return true表示服务器返回的是404
+	 */
+	public static boolean isNotFound(Object e) {
+		Throwable cause = e instanceof Throwable ? (Throwable) e : null;
+		if (cause instanceof WrappedException) {
+			// 脚本里catch到的是Rhino包了一层的异常
+			cause = ((WrappedException) cause).getWrappedException();
+		}
+		if (cause instanceof HttpStatusException) {
+			return ((HttpStatusException) cause).getStatusCode() == 404;
+		}
+		// 兜底：异常消息里有状态码，比如"获得内容失败:HTTP/1.1 404 Not Found"
+		String message = messageOf(e);
+		return message != null && message.contains(" 404 ");
+	}
+
+	/** 取异常的消息，脚本里catch到的异常也能取到 */
+	private static String messageOf(Object e) {
+		if (e instanceof Throwable) {
+			return ((Throwable) e).getMessage();
+		}
+		if (e instanceof Scriptable) {
+			Object message = ((Scriptable) e).get("message", (Scriptable) e);
+			return message == null ? null : Context.toString(message);
+		}
+		return null;
+	}
+
+	/**
+	 * 造一张"图片不存在"的图，保存到指定文件。
+	 *
+	 * @param file 保存的文件
+	 */
+	public static void writeNotFoundImage(File file) throws IOException {
+		int width = 600;
+		int height = 200;
+		BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+		Graphics2D g = image.createGraphics();
+		try {
+			g.setColor(new Color(60, 60, 60));
+			g.fillRect(0, 0, width, height);
+			g.setColor(new Color(210, 210, 210));
+			g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 40));
+			// 字写在中间
+			String text = "图片不存在";
+			int textWidth = g.getFontMetrics().stringWidth(text);
+			int textHeight = g.getFontMetrics().getHeight();
+			g.drawString(text, (width - textWidth) / 2, (height - textHeight) / 2 + g.getFontMetrics().getAscent());
+		} finally {
+			g.dispose();
+		}
+		File parentFile = file.getParentFile();
+		if (parentFile != null && !parentFile.exists()) {
+			parentFile.mkdirs();
+		}
+		ImageIO.write(image, imageFormat(file), file);
+	}
+
+	/**
+	 * 缓存文件用什么格式存。jpg 就存 jpg，别的存 png。
+	 * 文件名后缀和内容对不上也没关系，读图片的时候是看内容判断格式的。
+	 */
+	private static String imageFormat(File file) {
+		String name = FilenameUtils.getExtension(file.getName()).toLowerCase();
+		if ("jpg".equals(name) || "jpeg".equals(name)) {
+			return "jpg";
+		}
+		return "png";
 	}
 
 	/**
@@ -301,7 +409,7 @@ public class HttpHelper {
 				}
 			} else {
 				EntityUtils.consume(entity1);
-				throw new RuntimeException("获得内容失败:" + response.getStatusLine() + " , " + url);
+				throw new HttpStatusException(response.getStatusLine().getStatusCode(), response.getStatusLine().toString(), url);
 			}
 		} finally {
 			response.close();

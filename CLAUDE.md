@@ -77,7 +77,7 @@ Each file defines a global `channel` object and four functions. `ComicPluginEngi
 
 | Global | What it is |
 |---|---|
-| `httpclient` | `HttpHelper` — `getRemotePage(url, charset, headers)`, `postRemotePage(url, charset, headers, body)`, `saveRemoteImage(channel, comicId, sectionId, imageUrl, cacheFileName, headers)`, `saveRemotePage(url, headers, file)`。这几个方法都另有一个末尾多带 `soTimeoutSec` 的重载：传数字表示本次请求的读取超时秒数，不传（`null` / `undefined`）或小于等于 0 时用默认超时 5 秒。`postRemotePage` 的请求体是字符串，`Content-Type` 固定是 `application/json` |
+| `httpclient` | `HttpHelper` — `getRemotePage(url, charset, headers)`, `postRemotePage(url, charset, headers, body)`, `saveRemoteImage(channel, comicId, sectionId, imageUrl, cacheFileName, headers)`, `saveRemotePage(url, headers, file)`, `writeNotFoundImage(channel, comicId, sectionId, imageUrl, cacheFileName)`, `isNotFound(e)`。这几个方法都另有一个末尾多带 `soTimeoutSec` 的重载：传数字表示本次请求的读取超时秒数，不传（`null` / `undefined`）或小于等于 0 时用默认超时 5 秒。`postRemotePage` 的请求体是字符串，`Content-Type` 固定是 `application/json` |
 | `engine` | the `ComicPluginEngine` itself — used as `engine.eval(scope, script)` to run obfuscated/packed JS snippets scraped from a site and read the resulting object; `engine.parseHtml(html)` returns a DOM document |
 | `log` | slf4j logger named `ChannelJs` |
 | `parseHtml` | global function injected by `src/main/resources/dom.js` — `parseHtml(html)` parses HTML and returns a DOM document (same as `engine.parseHtml`) |
@@ -128,10 +128,32 @@ Logs go to stdout and `~/.comic-view/logs/comic-view.log` (logback, `src/main/re
 
 一页图片连续下载失败 3 次（`ContinuousScrollModel` 记的失败次数，下好了就清掉），就弹框问用户「连续下载失败多次，是否跳过这一页？」。
 
-- 选择跳过：生成一张 600x900 的 "图片不存在" 图（`ComicViewer.writeNotFoundImage`）写进缓存目录，用它代替真正的图片。图片已经在本地了，`isCached` 就是true，下次不会再去远程下载这一页。
+- 选择跳过：生成一张 600x200 的 "图片不存在" 图（`HttpHelper.writeNotFoundImage`）写进缓存目录，用它代替真正的图片。图片已经在本地了，`isCached` 就是true，下次不会再去远程下载这一页。
 - 选择不跳过：把失败次数清掉，再失败 3 次才问一次，免得框一个接一个地弹。
 - 跳过的页在换章、换漫画时要清掉（`skippedPages`），页码是每一章自己的。
 - 本地路径的图片（不是远程地址）不能跳过 —— 那个文件就是用户的文件，不能拿 not found 的图覆盖掉。
+
+渠道脚本也可以自己写占位图，判断这一页是真的下不来了就不用再反复试：
+
+```js
+// cacheFileName 要和下载图片时用的名字一样，不然界面找不到
+httpclient.writeNotFoundImage(channel.name, comicId, sectionId, imageUrl, pageNo + ".webp");
+```
+
+写完这一页在本地就有了，`isCached` 为 true，界面不会再远程下载它。
+
+服务器返回的不是200时，下载方法抛的是 `HttpStatusException`。脚本里 catch 到以后用 `httpclient.isNotFound(e)` 判断是不是404（其它原因比如超时不算）：
+
+```js
+try {
+	httpclient.saveRemoteImage(channel.name, comicId, sectionId, url, pageNo + ".webp", headers, 30);
+	return;
+} catch (e) {
+	if (httpclient.isNotFound(e)) {
+		// 这一页真的没有了
+	}
+}
+```
 
 ### HTTP 连接池
 

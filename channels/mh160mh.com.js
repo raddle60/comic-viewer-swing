@@ -62,7 +62,7 @@ function getSections(comicId) {
 	try {
 		content = String(httpclient.getRemotePage(comicUrl(comicId), "utf-8", {
 			"referer" : SITE + "/"
-		}, 30));
+		}, 10));
 	} catch (e) {
 		log.info("打开漫画页面失败 comicId[" + comicId + "]", e);
 	}
@@ -149,7 +149,7 @@ function getPages(comicId, sectionId) {
 	try {
 		content = String(httpclient.getRemotePage(sectionUrl(comicId, sectionId), "utf-8", {
 			"referer" : comicUrl(comicId)
-		}, 30));
+		}, 10));
 	} catch (e) {
 		log.info("打开章节页面失败 comicId[" + comicId + "] sectionId[" + sectionId + "]", e);
 		return [];
@@ -233,14 +233,28 @@ function loadRemoteImage(comicId, sectionId, pageNo, imageUrl) {
 		"referer" : sectionUrl(comicId, sectionId)
 	};
 	var path = imagePath(imageUrl);
+	// 全是404才说明这一页是真的没有了，网络问题不算
+	var allNotFound = true;
 	for (var i = 0; i < IMAGE_HOSTS.length; i++) {
 		var url = "https://" + IMAGE_HOSTS[i] + path;
 		try {
-			httpclient.saveRemoteImage(channel.name, comicId, sectionId, url, pageNo + ".webp", headers, 30);
+			httpclient.saveRemoteImage(channel.name, comicId, sectionId, url, pageNo + ".webp", headers, 10);
 			return;
 		} catch (e) {
+			allNotFound = allNotFound && httpclient.isNotFound(e);
 			log.info("下载图片失败，换一个图片服务器重试 comicId[" + comicId + "] sectionId[" + sectionId + "] pageNo[" + pageNo
 					+ "] host[" + IMAGE_HOSTS[i] + "] url[" + url + "] " + e);
+		}
+	}
+	if (allNotFound) {
+		// 所有图片服务器都说不存在，写一张not found的图存到本地，
+		// 下次就不用再一个一个服务器去试了
+		try {
+			httpclient.writeNotFoundImage(channel.name, comicId, sectionId, imageUrl, pageNo + ".webp");
+			log.info("这一页不存在，写了not found图片 comicId[" + comicId + "] sectionId[" + sectionId + "] pageNo[" + pageNo + "]");
+			return;
+		} catch (e) {
+			log.info("写not found图片失败 comicId[" + comicId + "] sectionId[" + sectionId + "] pageNo[" + pageNo + "] " + e);
 		}
 	}
 	log.info("所有图片服务器都没下载成功 comicId[" + comicId + "] sectionId[" + sectionId + "] pageNo[" + pageNo + "]");

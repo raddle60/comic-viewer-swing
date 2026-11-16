@@ -12,6 +12,8 @@ import javax.imageio.ImageIO;
 import org.junit.Assert;
 import org.junit.Test;
 
+import com.raddle.comic.engine.HttpHelper;
+
 /**
  * 一页图片连续下载失败多次，就问用户要不要跳过。
  * 跳过以后用一张 not found 的图代替，图片存到本地，下次不再去远程下载。
@@ -84,7 +86,7 @@ public class SkipFailedPageTest {
 	public void 跳过以后不再去远程下载() throws Exception {
 		final File notFoundFile = File.createTempFile("comic-notfound", ".png");
 		try {
-			ComicViewer.writeNotFoundImage(notFoundFile);
+			HttpHelper.writeNotFoundImage(notFoundFile);
 			final List<Integer> requested = Collections.synchronizedList(new ArrayList<Integer>());
 			final boolean[] skipped = new boolean[] { false };
 			final ContinuousScrollModel[] holder = new ContinuousScrollModel[1];
@@ -138,7 +140,7 @@ public class SkipFailedPageTest {
 	public void notfound图片能正常保存() throws Exception {
 		File file = File.createTempFile("comic-notfound", ".jpg");
 		try {
-			ComicViewer.writeNotFoundImage(file);
+			HttpHelper.writeNotFoundImage(file);
 			Assert.assertTrue("图片要存下来", file.exists());
 			BufferedImage image = ImageIO.read(file);
 			Assert.assertNotNull("存下来的要是一张能读的图片", image);
