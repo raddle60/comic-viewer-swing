@@ -11,7 +11,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.commons.io.FileUtils;
 import org.jsoup.Jsoup;
@@ -194,6 +196,23 @@ public class ComicPluginEngine {
 		} finally {
 			Context.exit();
 		}
+	}
+
+	/**
+	 * 取渠道目录下的脚本文件名，用来判断「最近打开」里的记录对应的渠道还在不在。
+	 * 只看文件名，不执行脚本，所以比 getChannelList 快很多。
+	 */
+	public static Set<String> getChannelScriptNames(File pluginDir) {
+		Set<String> names = new HashSet<String>();
+		if (pluginDir != null && pluginDir.isDirectory()) {
+			Collection<File> listFiles = FileUtils.listFiles(pluginDir, new String[] { "js" }, true);
+			for (File file : listFiles) {
+				names.add(file.getName());
+			}
+		} else {
+			logger.log("dir[{}] not exist or not a dir", pluginDir);
+		}
+		return names;
 	}
 
 	public static List<ChannelInfo> getChannelList(File pluginDir) {

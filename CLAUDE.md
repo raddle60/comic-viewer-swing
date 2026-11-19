@@ -190,6 +190,14 @@ try {
 
 The startup update check spawns a thread that re-reads each recent comic's last section id so the "最近打开" menu can flag `有更新`.
 
+### 「最近打开」菜单
+
+渠道经常变，以前打开过的渠道可能已经不在了（脚本被删掉或者改了名）。所以：
+
+- 渠道不在的记录，菜单项**禁用掉**（灰的，点不了），后面加上「（渠道不存在）」，鼠标停上去有提示说明是哪个脚本没了。判断渠道在不在是按脚本的文件名在 `channels` 目录里找（`ComicPluginEngine.getChannelScriptNames`），跟打开记录时找渠道的方式一致。
+- 菜单每次打开都要重新建一遍：菜单项上要显示最新章节，那个信息是后台线程查出来的，菜单建好以后才查到的也得等下次打开才显示出来。`JMenu` 的菜单项是加在它的**弹出菜单**里的，`menu.getComponent(0)` 永远是 null，所以不能用它来判断菜单是不是空的。
+- 界面上没有删除记录的功能，渠道没了的记录只能手动改 `~/.comic-view/recent-view.xml` 删掉。
+
 ## Viewer controls
 
 Arrows/space/Enter scroll (auto page-advance at the bottom), ←/→/PageUp/PageDown page, Home/End jump to first/last, Ctrl+arrows pan, Ctrl+Enter fullscreen, Esc exit fullscreen, Ctrl+G goto page, F5 refresh, M hide menu bar.

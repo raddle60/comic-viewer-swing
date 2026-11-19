@@ -274,44 +274,7 @@ public class ComicViewer {
 
 			@Override
 			public void menuSelected(MenuEvent e) {
-				if (recentViewmenu.getComponentCount() > 0) {
-					RecentViewMenuItem component = (RecentViewMenuItem) recentViewmenu.getComponent(0);
-					List<RecentViewInfo> recentViews = RecentViewHelper.getRecentViews();
-					if (recentViews.size() > 0) {
-						if (recentViews.get(0).getTime() > component.getViewInfo().getTime()) {
-							recentViewmenu.removeAll();
-							for (RecentViewInfo recentViewInfo : recentViews) {
-                                final RecentViewMenuItem recentItem = new RecentViewMenuItem(recentViewInfo, comicUpdate);
-								recentItem.addActionListener(new ActionListener() {
-									@Override
-									public void actionPerformed(ActionEvent e) {
-										openComicDialog.initRecentView(recentItem.getViewInfo());
-										openComicDialog.setModal(true);
-										openComicDialog.setVisible(true);
-										openComic();
-									}
-								});
-								recentViewmenu.add(recentItem);
-							}
-						}
-					}
-				} else {
-					recentViewmenu.removeAll();
-					List<RecentViewInfo> recentViews = RecentViewHelper.getRecentViews();
-					for (RecentViewInfo recentViewInfo : recentViews) {
-                        final RecentViewMenuItem recentItem = new RecentViewMenuItem(recentViewInfo, comicUpdate);
-						recentItem.addActionListener(new ActionListener() {
-							@Override
-							public void actionPerformed(ActionEvent e) {
-								openComicDialog.initRecentView(recentItem.getViewInfo());
-								openComicDialog.setModal(true);
-								openComicDialog.setVisible(true);
-								openComic();
-							}
-						});
-						recentViewmenu.add(recentItem);
-					}
-				}
+				refreshRecentViewMenu();
 			}
 		});
 		menu.add(recentViewmenu);
@@ -628,6 +591,48 @@ public class ComicViewer {
             }
         }, "check-comic-update").start();
     }
+
+	/**
+	 * 重建「最近打开」菜单。菜单每次打开都重新建一遍，
+	 * 这样后台线程查到的「最新章节」才能显示出来。
+	 *
+	 * 渠道经常变，以前打开过的渠道可能已经不在了（脚本被删掉或者改了名），
+	 * 这种记录的菜单项禁用掉，点了打不开。
+	 */
+	private void refreshRecentViewMenu() {
+		List<RecentViewInfo> recentViews = RecentViewHelper.getRecentViews();
+		Set<String> channelScriptNames = ComicPluginEngine.getChannelScriptNames(new File("channels"));
+		recentViewmenu.removeAll();
+		for (final RecentViewInfo recentViewInfo : recentViews) {
+			final RecentViewMenuItem recentItem = createRecentViewMenuItem(recentViewInfo, comicUpdate, channelScriptNames);
+			recentItem.addActionListener(new ActionListener() {
+				@Override
+				public void actionPerformed(ActionEvent e) {
+					openComicDialog.initRecentView(recentItem.getViewInfo());
+					openComicDialog.setModal(true);
+					openComicDialog.setVisible(true);
+					openComic();
+				}
+			});
+			recentViewmenu.add(recentItem);
+		}
+	}
+
+	/**
+	 * 建一个「最近打开」的菜单项。渠道脚本已经不在了的话，菜单项禁用掉（灰的，点不了）。
+	 */
+	static RecentViewMenuItem createRecentViewMenuItem(RecentViewInfo recentViewInfo, Map<String, ComicUpdate> comicUpdate,
+			Set<String> channelScriptNames) {
+		RecentViewMenuItem recentItem = new RecentViewMenuItem(recentViewInfo, comicUpdate);
+		String scriptName = FilenameUtils.getName(recentViewInfo.getChannelPath());
+		if (!channelScriptNames.contains(scriptName)) {
+			// 渠道没了，这条记录打不开
+			recentItem.setEnabled(false);
+			recentItem.setText(recentItem.getText() + "（渠道不存在）");
+			recentItem.setToolTipText("渠道脚本 " + scriptName + " 不存在，无法打开");
+		}
+		return recentItem;
+	}
 
 	private void movePic(int changedX, int changedY) {
 		if (complexImage == null) {
