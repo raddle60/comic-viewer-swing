@@ -19,6 +19,8 @@ class WindowTitle {
 	private String failedReason;
 	/** 连续下载的进度，比如"已下载 12/30" */
 	private String downloadProgress;
+	/** 下载后续章节的进度，比如"下载后续章节 3/10 已下载25页" */
+	private String chapterDownloadProgress;
 
 	String getStatus() {
 		return status;
@@ -42,5 +44,13 @@ class WindowTitle {
 
 	void setDownloadProgress(String downloadProgress) {
 		this.downloadProgress = downloadProgress;
+	}
+
+	String getChapterDownloadProgress() {
+		return chapterDownloadProgress;
+	}
+
+	void setChapterDownloadProgress(String chapterDownloadProgress) {
+		this.chapterDownloadProgress = chapterDownloadProgress;
 	}
 }

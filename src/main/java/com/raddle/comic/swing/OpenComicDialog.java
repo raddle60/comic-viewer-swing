@@ -1,6 +1,7 @@
 package com.raddle.comic.swing;
 
 import java.awt.BorderLayout;
+import java.awt.EventQueue;
 import java.awt.Component;
 import java.awt.FlowLayout;
 import java.awt.event.ActionEvent;
@@ -32,6 +33,7 @@ import javax.swing.event.ListSelectionListener;
 
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.mozilla.javascript.Context;
 import org.slf4j.LoggerFactory;
 
 import com.raddle.comic.LogWrapper;
@@ -70,6 +72,31 @@ public class OpenComicDialog extends JDialog {
 	private static final int MAX_SCROLL_RETRY = 10;
 	/** 选中的那一章往下滚几章，能让它落在可视区域的中间 */
 	private static final int SCROLL_DOWN_ROWS = 6;
+	/** 下载后续章节的按钮 */
+	private JButton downloadBtn;
+	/** 下载后续章节的进度，界面拿去显示在标题栏上 */
+	private DownloadProgressListener progressListener;
+	/** 下载后续章节的线程是不是在跑 */
+	private volatile boolean downloading = false;
+	/** 正在下载的漫画id，一个漫画同时只能有一条下载链 */
+	private volatile String downloadingComicId = null;
+	/** 连续失败多少页就停下来 */
+	private static final int MAX_FAILED_IN_A_ROW = 3;
+
+	/**
+	 * 下载后续章节的进度回调。
+	 */
+	public interface DownloadProgressListener {
+		/**
+		 * @param progress 进度的字，比如"下载后续章节 3/10"，null表示下完了不显示了
+		 */
+		void onDownloadProgress(String progress);
+	}
+
+	/** 设置下载进度的回调 */
+	public void setDownloadProgressListener(DownloadProgressListener listener) {
+		this.progressListener = listener;
+	}
 
 	/**
 	 * Launch the application.
@@ -238,6 +265,16 @@ public class OpenComicDialog extends JDialog {
 		getBtn.setBounds(346, 81, 93, 23);
 		contentPanel.add(getBtn);
 
+		downloadBtn = new JButton("下载后续章节");
+		downloadBtn.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				startDownloadChapters();
+			}
+		});
+		downloadBtn.setBounds(446, 81, 120, 23);
+		contentPanel.add(downloadBtn);
+
 		lastSectionIdLeb = new JTextField("");
 		lastSectionIdLeb.setBounds(351, 57, 410, 21);
 		lastSectionIdLeb.setEditable(false);
@@ -334,7 +371,8 @@ public class OpenComicDialog extends JDialog {
 	}
 
 	/**
-	 * 窗口每次显示出来都要把选中的章节滚到中间。
+	 * 窗口每次显示出来都要做两件事：把选中的章节滚到中间，
+	 * 再看一下下载的状态（下载是对话框关掉也在跑的，窗口再打开时按钮要接着是灰的）。
 	 *
 	 * 不能靠 windowOpened 那个事件，它只在窗口第一次显示的时候来一次，
 	 * 第二次打开就滚不动了。setVisible 每次显示都会走这里。
@@ -350,6 +388,7 @@ public class OpenComicDialog extends JDialog {
 					scrollSelectedToMiddle();
 				}
 			});
+			updateDownloadButton();
 		}
 		super.setVisible(visible);
 	}
@@ -419,6 +458,244 @@ public class OpenComicDialog extends JDialog {
 		} finally {
 			pluginEngine.close();
 		}
+	}
+
+	/**
+	 * 下载后续章节：从选中的章节开始，把后面所有章节的图片都下到本地缓存。
+	 *
+	 * 单独起一个线程，窗口还能用。某一页下不下来就跳过，接着下下一页；
+	 * 连续失败三页了就停下来，剩下的不下了。
+	 */
+	private void startDownloadChapters() {
+		if (downloading) {
+			// 已经有一条下载链在跑了，一个漫画同时只能有一条
+			return;
+		}
+		ChannelInfo channel = (ChannelInfo) channelBox.getSelectedItem();
+		if (channel == null) {
+			JOptionPane.showMessageDialog(this, "没有选择来源");
+			return;
+		}
+		final String comicId = comicIdTxt.getText();
+		if (StringUtils.isBlank(comicId)) {
+			JOptionPane.showMessageDialog(this, "没有填写漫画id");
+			return;
+		}
+		final List<SectionInfo> sections = getSections();
+		if (sections.isEmpty()) {
+			JOptionPane.showMessageDialog(this, "没有章节信息，先点获取");
+			return;
+		}
+		// 从选中的那一章开始，后面的章节依次下
+		int startIndex = -1;
+		String sectionId = sectionIdTxt.getText();
+		for (int i = 0; i < sections.size(); i++) {
+			if (StringUtils.equals(sections.get(i).getSectionId(), sectionId)) {
+				startIndex = i;
+				break;
+			}
+		}
+		if (startIndex < 0) {
+			JOptionPane.showMessageDialog(this, "没有选中的章节");
+			return;
+		}
+		// 告诉用户一共要下多少章，确认了再下
+		int option = JOptionPane.showConfirmDialog(this, buildDownloadMessage(sections, startIndex), "提示", JOptionPane.YES_NO_OPTION);
+		if (option != JOptionPane.YES_OPTION) {
+			return;
+		}
+		downloading = true;
+		downloadingComicId = comicId;
+		updateDownloadButton();
+		// 章节列表是倒序的（第一个是最新的一章），"往后的章节"在列表里
+		// 是排在选中项前面的那些。这里从选中的那一章开始，一路往前下。
+		final List<SectionInfo> toDownload = new ArrayList<SectionInfo>();
+		for (int i = startIndex; i >= 0; i--) {
+			toDownload.add(sections.get(i));
+		}
+		new Thread(new Runnable() {
+			@Override
+			public void run() {
+				downloadChapters(channel, comicId, toDownload);
+			}
+		}, "download-chapters").start();
+	}
+
+	/**
+	 * 下载中的时候按钮是灰的，标题也改一下，让用户看得出正在下载。
+	 */
+	private void updateDownloadButton() {
+		downloadBtn.setEnabled(!downloading);
+		downloadBtn.setText(downloading ? "下载中…" : "下载后续章节");
+	}
+
+	/**
+	 * 把这些章节的图片都下到本地缓存。
+	 *
+	 * @param channel 渠道
+	 * @param comicId 漫画id
+	 * @param sections 要下的章节，从选中的那一章开始
+	 */
+	private void downloadChapters(ChannelInfo channel, String comicId, List<SectionInfo> sections) {
+		ComicPluginEngine engine = new ComicPluginEngine();
+		try {
+			engine.init(channel.getScriptFile());
+			int chaptersDone = downloadChapters(new EngineDownloader(engine), comicId, sections);
+			if (chaptersDone >= sections.size()) {
+				logger.log("后续章节下载完成 comicId[" + comicId + "] 共" + chaptersDone + "章");
+			} else {
+				logger.log("后续章节下载中断 comicId[" + comicId + "] 下了" + chaptersDone + "章，还剩" + (sections.size() - chaptersDone) + "章");
+			}
+		} catch (Exception e) {
+			logger.log(e.getMessage(), e);
+		} finally {
+			engine.close();
+			stopDownload();
+		}
+	}
+
+	/**
+	 * 下载这些章节的图片。
+	 *
+	 * 某一页下不下来就跳过，接着下下一页；连续失败三页了就停下来，剩下的不下了。
+	 *
+	 * @param downloader 下载用的
+	 * @param comicId 漫画id
+	 * @param sections 要下的章节
+	 * @return 下完了多少章，比sections.size()小说明是中途停下来的
+	 */
+	int downloadChapters(ChapterDownloader downloader, String comicId, List<SectionInfo> sections) {
+		int failedInARow = 0;
+		int chaptersDone = 0;
+		int pagesDone = 0;
+		for (SectionInfo section : sections) {
+			List<PageInfo> pages;
+			try {
+				pages = downloader.getPages(comicId, section.getSectionId());
+			} catch (Exception e) {
+				logger.log("获取页面信息失败 comicId[" + comicId + "] sectionId[" + section.getSectionId() + "] " + e.getMessage(), e);
+				pages = new ArrayList<PageInfo>();
+			}
+			if (pages == null) {
+				pages = new ArrayList<PageInfo>();
+			}
+			for (PageInfo page : pages) {
+				boolean ok;
+				try {
+					ok = downloader.download(comicId, section.getSectionId(), page);
+				} catch (Exception e) {
+					ok = false;
+					logger.log("下载图片失败，跳过 comicId[" + comicId + "] sectionId[" + section.getSectionId() + "] pageNo["
+							+ page.getPageNo() + "] " + e.getMessage(), e);
+				}
+				if (ok) {
+					failedInARow = 0;
+					pagesDone++;
+				} else {
+					// 这一页下不来就跳过，接着下下一页
+					failedInARow++;
+				}
+				if (failedInARow >= MAX_FAILED_IN_A_ROW) {
+					// 连续失败这么多次了，停下来
+					logger.log("连续失败" + failedInARow + "页，停止下载 comicId[" + comicId + "]");
+					return chaptersDone;
+				}
+			}
+			chaptersDone++;
+			showDownloadProgress("下载后续章节 " + chaptersDone + "/" + sections.size() + " 已下载" + pagesDone + "页");
+		}
+		return chaptersDone;
+	}
+
+	/**
+	 * 确认框上的话。
+	 *
+	 * 章节列表是倒序的（第一个是最新的一章），从选中的那一章往后下，
+	 * 下到列表的第一个（最新的一章）为止。
+	 *
+	 * 数字是"一共要下多少章"，不是一个章号，所以要把从哪一章到哪一章也说清楚，
+	 * 不然看到个数字会以为是下到第几章。
+	 *
+	 * @param sections 章节列表
+	 * @param startIndex 选中的那一章在列表里的位置
+	 * @return 确认框上的话
+	 */
+	static String buildDownloadMessage(List<SectionInfo> sections, int startIndex) {
+		int count = startIndex + 1;
+		SectionInfo selected = sections.get(startIndex);
+		SectionInfo newest = sections.get(0);
+		return "从「" + StringUtils.defaultIfBlank(selected.getName(), selected.getSectionId()) + "」开始，一直下到「"
+				+ StringUtils.defaultIfBlank(newest.getName(), newest.getSectionId()) + "」，一共 " + count + " 章，是否继续？";
+	}
+
+	/**
+	 * 下载用的东西。测试的时候可以换成假的。
+	 */
+	interface ChapterDownloader {
+		/**
+		 * 取这一章的页面信息。
+		 */
+		List<PageInfo> getPages(String comicId, String sectionId) throws Exception;
+
+		/**
+		 * 下载这一页，成功返回true，失败返回false。
+		 */
+		boolean download(String comicId, String sectionId, PageInfo page) throws Exception;
+	}
+
+	/** 用插件引擎来下载 */
+	private static class EngineDownloader implements ChapterDownloader {
+
+		private final ComicPluginEngine engine;
+
+		EngineDownloader(ComicPluginEngine engine) {
+			this.engine = engine;
+		}
+
+		@Override
+		public List<PageInfo> getPages(String comicId, String sectionId) {
+			// 后台线程里调引擎，Rhino的Context是跟线程走的，要自己进一个
+			Context.enter();
+			try {
+				return engine.getPages(comicId, sectionId);
+			} finally {
+				Context.exit();
+			}
+		}
+
+		@Override
+		public boolean download(String comicId, String sectionId, PageInfo page) {
+			// loadRemoteImage自己管Context，不用在外面进
+			engine.loadRemoteImage(comicId, sectionId, page.getPageNo(), page.getPageUrl());
+			return true;
+		}
+	}
+
+	/** 下载完了（或者中途停了），恢复按钮，标题上不再显示进度 */
+	private void stopDownload() {
+		downloading = false;
+		downloadingComicId = null;
+		EventQueue.invokeLater(new Runnable() {
+			@Override
+			public void run() {
+				updateDownloadButton();
+				showDownloadProgress(null);
+			}
+		});
+	}
+
+	/** 把进度告诉界面，界面拿去显示在标题栏上 */
+	private void showDownloadProgress(final String progress) {
+		EventQueue.invokeLater(new Runnable() {
+			@Override
+			public void run() {
+				// 对话框自己的标题栏上也显示一下
+				setTitle(progress == null ? "" : progress);
+				if (progressListener != null) {
+					progressListener.onDownloadProgress(progress);
+				}
+			}
+		});
 	}
 
 	/**

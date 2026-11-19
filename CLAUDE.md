@@ -50,7 +50,7 @@ com.raddle.comic
 │   ├── ContinuousScrollModel  continuous-scroll model: scroll position + page cache + preloading
 │   ├── OpenComicDialog    pick channel → comic id → section → page
 │   ├── WindowTitle        窗口标题的各个部分（状态、失败原因、下载进度）
-│   └── RecentViewMenuItem recent-list menu entry (shows "有更新" in red)
+│   └── RecentViewMenuItem recent-list menu entry (shows "最新章节xxx" in red when there's a new chapter)
 ├── RecentViewHelper    ~/.comic-view/recent-view.xml (last 30 reads)
 ├── RecentViewInfo     one entry of the recent-view list
 ├── ViewConfigHelper    ~/.comic-view/view-config.xml (continuous-scroll, seamless, continuous-download, fit-height, zoom flags)
@@ -154,6 +154,19 @@ try {
 	}
 }
 ```
+
+### 下载后续章节
+
+打开漫画的对话框里，「获取」按钮后面有「下载后续章节」按钮。
+
+- 从**选中的那一章**开始，把故事里后面（更新的）那些章节的图片都下到本地缓存。章节列表是**倒序**的（第一个是最新的一章），所以这些章节在列表里是排在选中项**前面**的，下载时从选中项一路往前下。
+- 点了先弹确认框，告诉你一共会下多少章，确认了才下。
+- 单独起一个线程（`download-chapters`），窗口还能用。下载期间按钮是灰的。
+- 某一页下不来就跳过，接着下下一页；**连续失败 3 页**就停下来，剩下的不下了。
+- 进度显示在窗口标题上（`WindowTitle` 的 `chapterDownloadProgress`，跟连续下载的进度是分开的两项，不会互相冲掉），下完就不显示了。
+- 确认框上的话要写清楚「一共多少章」和「从哪一章到哪一章」，不然看到个数字会以为是下到第几章（`buildDownloadMessage`）。
+
+下载的代码拆成两部分：界面上的 `downloadChapters(ChapterDownloader, comicId, sections)` 只管逻辑（跳过失败的页、连续失败三次就停），真正下载用 `EngineDownloader`（走插件引擎）。测试用假的 `ChapterDownloader` 来验证逻辑，不用连网络。
 
 ### HTTP 连接池
 

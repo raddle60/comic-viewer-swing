@@ -181,7 +181,7 @@ public class ComicViewer {
 	private int zoomPercent = 100;
 	/** 单页模式下原图，缩放后的图片从这里算出来 */
 	private Image originImage;
-	private Map<String,String> comicUpdate = new HashMap<String, String>();
+	private Map<String,ComicUpdate> comicUpdate = new HashMap<String, ComicUpdate>();
 	/** 章末已经处理过了（换过章或者换失败了），位置动了才重新处理 */
 	private boolean nextChapterHandled = false;
 	/** 窗口标题的各个部分，改哪一部分由各处自己管，最后统一拼出来显示 */
@@ -226,6 +226,14 @@ public class ComicViewer {
 	 */
 	public ComicViewer() {
 		createFrame();
+		// 打开漫画的对话框里下载后续章节的进度，显示在窗口标题上
+		openComicDialog.setDownloadProgressListener(new OpenComicDialog.DownloadProgressListener() {
+			@Override
+			public void onDownloadProgress(String progress) {
+				title.setChapterDownloadProgress(progress);
+				refreshTitle();
+			}
+		});
 	}
 
 	/**
@@ -582,23 +590,35 @@ public class ComicViewer {
             @Override
             public void run() {
                 List<RecentViewInfo> recentViews = RecentViewHelper.getRecentViews();
+                List<ChannelInfo> channelList = ComicPluginEngine.getChannelList(new File("channels"));
                 for (RecentViewInfo recentViewInfo : recentViews) {
-                    comicUpdate.put(recentViewInfo.getComicId(), "updating");
+                    ChannelInfo channel = null;
+                    for (ChannelInfo channelInfo : channelList) {
+                        if (FilenameUtils.getName(recentViewInfo.getChannelPath()).equals(channelInfo.getScriptFile().getName())) {
+                            channel = channelInfo;
+                            break;
+                        }
+                    }
+                    if (channel == null) {
+                        // 渠道没了，这条记录打不开，不用检查更新
+                        continue;
+                    }
+                    comicUpdate.put(recentViewInfo.getComicId(), ComicUpdate.checking());
                     ComicPluginEngine updateSessionEngine = null;
                     try {
                         updateSessionEngine = new ComicPluginEngine();
-                        List<ChannelInfo> channelList = ComicPluginEngine.getChannelList(new File("channels"));
-                        for (ChannelInfo channelInfo : channelList) {
-                            if (FilenameUtils.getName(recentViewInfo.getChannelPath()).equals(channelInfo.getScriptFile().getName())) {
-                                updateSessionEngine.init(channelInfo.getScriptFile());
-                                break;
-                            }
-                        }
+                        updateSessionEngine.init(channel.getScriptFile());
                         ComicInfo comicInfo = updateSessionEngine.getSections(recentViewInfo.getComicId());
                         // 章节列表是倒序的，最新的一话在第一个
-                        comicUpdate.put(recentViewInfo.getComicId(), comicInfo.getSections().get(0).getSectionId());
+                        List<SectionInfo> sections = comicInfo.getSections();
+                        if (sections == null || sections.isEmpty()) {
+                            comicUpdate.put(recentViewInfo.getComicId(), ComicUpdate.failed("没有章节信息"));
+                        } else {
+                            SectionInfo latest = sections.get(0);
+                            comicUpdate.put(recentViewInfo.getComicId(), ComicUpdate.latest(latest.getSectionId(), latest.getName()));
+                        }
                     } catch (Exception e) {
-                        comicUpdate.put(recentViewInfo.getComicId(), "failed: " + StringUtils.defaultIfEmpty(e.getMessage(), e.getClass().getSimpleName()));
+                        comicUpdate.put(recentViewInfo.getComicId(), ComicUpdate.failed(StringUtils.defaultIfEmpty(e.getMessage(), e.getClass().getSimpleName())));
                     } finally {
                         if (updateSessionEngine != null) {
                             updateSessionEngine.close();
@@ -892,6 +912,10 @@ public class ComicViewer {
 		String progress = title.getDownloadProgress();
 		if (StringUtils.isNotBlank(progress)) {
 			sb.append(" - ").append(progress);
+		}
+		String chapterProgress = title.getChapterDownloadProgress();
+		if (StringUtils.isNotBlank(chapterProgress)) {
+			sb.append(" - ").append(chapterProgress);
 		}
 		return sb.toString();
 	}
