@@ -5,12 +5,8 @@ package com.raddle.comic;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
 
-import org.apache.commons.configuration.XMLConfiguration;
 import org.slf4j.LoggerFactory;
 
 /**
@@ -18,7 +14,7 @@ import org.slf4j.LoggerFactory;
  * 
  */
 public class ViewConfigHelper {
-	private static XMLConfiguration config = new XMLConfiguration();
+	private static XmlConfig config = new XmlConfig();
 	private static File configFile = new File(System.getProperty("user.home") + "/.comic-view/view-config.xml");
 	static {
 		if (!configFile.getParentFile().exists()) {
@@ -37,9 +33,7 @@ public class ViewConfigHelper {
 
 	private static void save() {
 		try {
-			Writer os = new OutputStreamWriter(new FileOutputStream(configFile), "utf-8");
-			config.save(os);
-			os.close();
+			config.saveTo(configFile);
 		} catch (Exception e) {
 			LoggerFactory.getLogger(ViewConfigHelper.class).error(e.getMessage(), e);
 		}

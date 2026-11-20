@@ -5,17 +5,13 @@ package com.raddle.comic;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
 import org.apache.commons.configuration.HierarchicalConfiguration;
-import org.apache.commons.configuration.XMLConfiguration;
 import org.apache.commons.io.FilenameUtils;
 import org.slf4j.LoggerFactory;
 
@@ -26,7 +22,7 @@ import com.raddle.comic.engine.ChannelInfo;
  * 
  */
 public class RecentViewHelper {
-	private static XMLConfiguration config = new XMLConfiguration();
+	private static XmlConfig config = new XmlConfig();
 	private static File configFile = new File(System.getProperty("user.home") + "/.comic-view/recent-view.xml");
 	static {
 		if (!configFile.getParentFile().exists()) {
@@ -45,9 +41,7 @@ public class RecentViewHelper {
 
 	private static void save() {
 		try {
-			Writer os = new OutputStreamWriter(new FileOutputStream(configFile), "utf-8");
-			config.save(os);
-			os.close();
+			config.saveTo(configFile);
 		} catch (Exception e) {
 			LoggerFactory.getLogger(RecentViewHelper.class).error(e.getMessage(), e);
 		}

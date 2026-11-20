@@ -54,8 +54,19 @@ com.raddle.comic
 ├── RecentViewHelper    ~/.comic-view/recent-view.xml (last 30 reads)
 ├── RecentViewInfo     one entry of the recent-view list
 ├── ViewConfigHelper    ~/.comic-view/view-config.xml (continuous-scroll, seamless, continuous-download, fit-height, zoom flags)
+├── XmlConfig          XMLConfiguration 子类，写配置文件用（见下）
 └── LogWrapper          slf4j wrapper with `{}` placeholder substitution
 ```
+
+### 配置文件（recent-view.xml / view-config.xml）
+
+读还是 commons-configuration 的 `XMLConfiguration.load()`，**写必须用 `XmlConfig.saveTo(file)`，不要用 commons-configuration 自带的 `config.save(writer)`**。
+
+自带的那个 `save()` 用 JDK 的恒等序列化器写文件，它会把标签之间的空白当成"空白文本节点"原样写回去，写的时候还把自己的缩进混进去——每存一次文件就多出一批空行，程序每启动一次（load 一次 + save 一次）文件就胖一圈。`recent-view.xml` 曾经涨到 1451 行，其中 1300 多行是空白。
+
+`XmlConfig.saveTo()` 的做法：先 `createDocument()` 拿到 DOM（父类的方法是 protected，所以要子类化），把只含空白的文本节点删掉，再用同一个恒等序列化器 `indent=yes` 输出——没有混合内容了，缩进就正常了，文件干净而且大小不再变。删空白节点时只删"父元素还有子元素"的那些，元素的值本身就是空白时要留着，不然 `<comicName></comicName>` 会变成 `<comicName/>`，读回来 `null` 和 `""` 不一样。
+
+`XmlConfig` 继承自 `XMLConfiguration`，里面有个同名的 `Node` 内部类，跟 `org.w3c.dom.Node` 冲突，代码里 `org.w3c.dom.Node` 要写全名。
 
 `ComicViewer` holds all viewer state as fields (current channel/comic/section/page) and drives `ComicPluginEngine`; the dialog is a separate JDialog that talks to its own short-lived engine instance.
 
